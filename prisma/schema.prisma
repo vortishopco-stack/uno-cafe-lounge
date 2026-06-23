@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  phone       String   @unique
+  email       String   @unique
+  name        String
+  password    String
+  points      Int      @default(0)
+  totalVisits Int      @default(0)
+  role        String   @default("customer") // customer, employee, admin
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  visits             Visit[]
+  gameHistories      GameHistory[]
+  missions           Mission[]
+  rewardRedemptions  RewardRedemption[]
+}
+
+model Visit {
+  id           String   @id @default(cuid())
+  customerId   String
+  invoiceAmount Float
+  pointsEarned Int
+  createdBy    String   // employee ID who added the visit
+  createdAt    DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  price       Float
+  category    String   @default("Main")
+  imageUrl    String   @default("")
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  pointsCost  Int
+  imageUrl    String   @default("")
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  redemptions RewardRedemption[]
+}
+
+model GameHistory {
+  id         String   @id @default(cuid())
+  customerId String
+  gameType   String   // burger_catch, coffee_shooter, grand_wheel
+  entryCost  Int
+  winnings   Int
+  playedAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model Mission {
+  id         String   @id @default(cuid())
+  customerId String
+  type       String   // visit_5, spend_100, etc.
+  title      String
+  target     Int
+  progress   Int      @default(0)
+  completed  Boolean  @default(false)
+  points     Int      @default(0) // reward points on completion
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model RewardRedemption {
+  id         String   @id @default(cuid())
+  customerId String
+  rewardId   String
+  pointsCost Int
+  redeemedAt DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  reward   Reward   @relation(fields: [rewardId], references: [id])
+}
