@@ -58,8 +58,8 @@
 /* hue ~ 55 (amber) for primary, 35 (caramel) for accent */
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.16 0.015 55);       /* deep coffee-brown-black */
-  --foreground: oklch(0.95 0.02 55);        /* warm cream */
+  --background: oklch(100% 0.00011 271.152);       /* deep coffee-brown-black */
+  --foreground: oklch(45.11% 0.1007 49.295);        /* warm cream */
   --card: oklch(0.22 0.03 50);
   --card-foreground: oklch(0.95 0.02 55);
   --popover: oklch(0.22 0.03 50);
