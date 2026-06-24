@@ -54,8 +54,12 @@ jobs:
         #   3. Add a CNAME DNS record pointing to USERNAME.github.io
         # When CUSTOM_DOMAIN secret is set, this step writes it to out/CNAME
         # so GitHub Pages serves the site at that domain automatically.
-        if: ${{ secrets.CUSTOM_DOMAIN != '' }}
-        run: echo "${{ secrets.CUSTOM_DOMAIN }}" > out/CNAME
+        # NOTE: GitHub Actions does not allow the `secrets` context inside `if:`,
+        # so we route the secret through an env var and test that instead.
+        env:
+          CUSTOM_DOMAIN: ${{ secrets.CUSTOM_DOMAIN }}
+        if: env.CUSTOM_DOMAIN != ''
+        run: echo "$CUSTOM_DOMAIN" > out/CNAME
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
