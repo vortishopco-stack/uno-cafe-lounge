@@ -30,13 +30,44 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Determine Next.js base path
+        id: basepath
+        # GitHub does NOT allow saving a truly empty secret — "clearing" it
+        # often leaves whitespace or stale bytes, which then breaks Next.js
+        # ("basePath has to be either an empty string or a path prefix").
+        # So we never trust NEXT_PUBLIC_BASE_PATH directly. Instead we derive
+        # the final value here, where we can actually test for emptiness.
+        #
+        #   CUSTOM_DOMAIN set         -> base path MUST be empty (root-served site)
+        #   CUSTOM_DOMAIN empty       -> use NEXT_PUBLIC_BASE_PATH secret,
+        #                                 falling back to /uno-cafe-lounge if absent
+        env:
+          CUSTOM_DOMAIN: ${{ secrets.CUSTOM_DOMAIN }}
+          BASE_PATH_SECRET: ${{ secrets.NEXT_PUBLIC_BASE_PATH }}
+        run: |
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            echo "base_path=" >> "$GITHUB_OUTPUT"
+            echo "Using custom domain: $CUSTOM_DOMAIN (base path = empty)"
+          elif [ -n "$BASE_PATH_SECRET" ]; then
+            # Trim whitespace; validate it starts with /
+            CLEAN=$(echo "$BASE_PATH_SECRET" | xargs)
+            if [ -z "$CLEAN" ] || [ "${CLEAN:0:1}" != "/" ]; then
+              echo "WARNING: NEXT_PUBLIC_BASE_PATH secret is invalid ('$BASE_PATH_SECRET'), using /uno-cafe-lounge"
+              echo "base_path=/uno-cafe-lounge" >> "$GITHUB_OUTPUT"
+            else
+              echo "base_path=$CLEAN" >> "$GITHUB_OUTPUT"
+              echo "Using base path from secret: $CLEAN"
+            fi
+          else
+            echo "base_path=/uno-cafe-lounge" >> "$GITHUB_OUTPUT"
+            echo "No base path secret set, defaulting to /uno-cafe-lounge"
+          fi
+
       - name: Build static site
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          # For a project page (USERNAME.github.io/REPO/), set this to /REPO
-          # For a custom domain or user/org page, set this to empty (default)
-          NEXT_PUBLIC_BASE_PATH: ${{ secrets.NEXT_PUBLIC_BASE_PATH }}
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.basepath.outputs.base_path }}
         run: npm run build
 
       - name: Add 404.html for SPA routing
