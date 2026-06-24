@@ -194,7 +194,6 @@ git push -u origin main
 **Settings → Pages** shows: `https://USERNAME.github.io/uno-cafe-lounge/`
 
 🎉 **Done!**
-
 ---
 
 ## 🧪 Test locally
