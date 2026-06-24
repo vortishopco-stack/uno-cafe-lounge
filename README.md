@@ -171,7 +171,6 @@ git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/uno-cafe-lounge.git
 git push -u origin main
 ```
-
 ### Step 7 — Configure GitHub Secrets
 **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
 
