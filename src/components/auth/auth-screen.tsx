@@ -93,7 +93,7 @@ export function AuthScreen({ onBrowseMenu }: AuthScreenProps) {
             <LanguageSwitcher />
           </div>
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 mb-4 shadow-lg shadow-purple-500/25">
-            <UtensilsCrossed className="w-10 h-10 text-white" />
+              <img src="public/logo.png" alt="Logo" className="w-12 h-12 object-contain" />
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
             {t('appName')}
