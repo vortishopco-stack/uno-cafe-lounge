@@ -268,12 +268,12 @@ export function AuthScreen({ onBrowseMenu }: AuthScreenProps) {
             </button>
           )}
           <div>
-            <p className="text-xs text-muted-foreground/60">
+            {/* <p className="text-xs text-muted-foreground/60">
               {t('poweredBy')}
             </p>
             <p className="text-xs text-muted-foreground/40 mt-1">
               {t('demoAccounts')}
-            </p>
+            </p> */}
           </div>
         </div>
       </div>
