@@ -36,8 +36,8 @@ export function PublicMenu({ onBack, onSignIn }: PublicMenuProps) {
           </Button>
 
           <div className="flex items-center gap-2">
-            <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/25">
-              <img src="public/logo.png" alt="Logo" className="w-6 h-6" />
+            <div className="inline-flex items-center justify-center w-9 h-9">
+              <img src="logo.png" alt="Logo" className="w-6 h-6" />
             </div>
             <div>
               <p className="text-sm font-bold leading-tight bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">

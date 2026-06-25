@@ -169,8 +169,8 @@ export function CustomerDashboard() {
       {/* Header */}
       <header className="glass-card rounded-none border-x-0 border-t-0 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-            <img src="public/logo.png" alt="Logo" className="w-6 h-6" />
+          <div className="w-9 h-9  flex items-center justify-center">
+            <img src="logo.png" alt="Logo" className="w-6 h-6" />
           </div>
           <div>
             <h1 className="text-sm font-bold">{t('appName')}</h1>
