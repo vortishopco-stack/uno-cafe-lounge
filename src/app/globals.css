@@ -1,14 +1,3 @@
-/*
- * Uno Cafe' Lounge - Coffee / Amber color theme (OPTIONAL)
- * --------------------------------------------------------
- * This is a full replacement for src/app/globals.css.
- * It swaps the purple/violet theme for warm coffee-amber tones
- * while keeping the glassmorphism design intact.
- *
- * To use: copy this file over src/app/globals.css
- * (or pick only the :root variables if you prefer a smaller change)
- */
-
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -54,41 +43,61 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ---- Coffee / Amber palette ---- */
-/* hue ~ 55 (amber) for primary, 35 (caramel) for accent */
+/* ============================================================
+   THEME: Warm Cream & Terracotta (Light Mode)
+   Inspired by: Uno Cafe' Lounge brand
+   - Background: cream #F8F3E9
+   - Primary:    terracotta #D2691E
+   - Secondary:  light orange #E6955C
+   - Text:       warm dark brown
+   ============================================================ */
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.95 0.02 55);       /* deep coffee-brown-black */
-  --foreground: oklch(0.95 0.02 55);        /* warm cream */
-  --card: oklch(0.22 0.03 50);
-  --card-foreground: oklch(0.95 0.02 55);
-  --popover: oklch(0.22 0.03 50);
-  --popover-foreground: oklch(0.95 0.02 55);
-  --primary: oklch(0.72 0.17 55);           /* amber */
-  --primary-foreground: oklch(0.18 0.02 50);
-  --secondary: oklch(0.28 0.04 45);
-  --secondary-foreground: oklch(0.9 0.03 55);
-  --muted: oklch(0.24 0.025 50);
-  --muted-foreground: oklch(0.68 0.05 50);
-  --accent: oklch(0.6 0.14 35);             /* caramel */
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.65 0.2 25);
-  --border: oklch(0.36 0.05 45);
-  --input: oklch(0.3 0.04 45);
-  --ring: oklch(0.72 0.17 55);
-  --chart-1: oklch(0.72 0.17 55);
-  --chart-2: oklch(0.6 0.14 35);
-  --chart-3: oklch(0.75 0.13 80);
-  --chart-4: oklch(0.55 0.1 30);
-  --chart-5: oklch(0.7 0.15 70);
-  --sidebar: oklch(0.18 0.02 50);
-  --sidebar-foreground: oklch(0.95 0.02 55);
-  --sidebar-primary: oklch(0.72 0.17 55);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.26 0.04 45);
-  --sidebar-accent-foreground: oklch(0.9 0.03 55);
-  --sidebar-border: oklch(0.36 0.05 45);
-  --sidebar-ring: oklch(0.72 0.17 55);
+
+  /* BACKGROUNDS */
+  --background: oklch(0.961 0.012 81);      /* #F8F3E9 cream */
+  --card: oklch(0.985 0.008 81);            /* near-white, slightly warm */
+  --card-foreground: oklch(0.247 0.030 56); /* dark brown text */
+  --popover: oklch(0.985 0.008 81);
+  --popover-foreground: oklch(0.247 0.030 56);
+  --secondary: oklch(0.905 0.020 81);       /* #EDE2CC warm beige */
+  --secondary-foreground: oklch(0.364 0.052 56);
+  --muted: oklch(0.908 0.018 81);           /* #E8E0D0 pale warm gray */
+  --muted-foreground: oklch(0.500 0.040 56);/* medium brown for dimmed text */
+
+  /* TEXT */
+  --foreground: oklch(0.247 0.030 56);      /* #3D2817 dark brown main text */
+
+  /* ACCENTS (buttons, links, focus rings) */
+  --primary: oklch(0.617 0.157 56);         /* #D2691E terracotta */
+  --primary-foreground: oklch(0.985 0.008 81); /* cream text on terracotta */
+  --accent: oklch(0.728 0.119 56);          /* #E6955C light orange */
+  --accent-foreground: oklch(0.247 0.030 56); /* dark brown text on light orange */
+  --ring: oklch(0.617 0.157 56);            /* terracotta focus ring */
+
+  /* BORDERS & INPUTS */
+  --border: oklch(0.860 0.030 81);          /* warm light border */
+  --input: oklch(0.880 0.025 81);
+
+  /* SEMANTIC */
+  --destructive: oklch(0.577 0.245 27.325); /* red for delete actions */
+
+  /* CHART COLORS (warm earthy palette) */
+  --chart-1: oklch(0.617 0.157 56);         /* terracotta */
+  --chart-2: oklch(0.728 0.119 56);         /* light orange */
+  --chart-3: oklch(0.780 0.130 75);         /* warm gold */
+  --chart-4: oklch(0.550 0.130 40);         /* sienna */
+  --chart-5: oklch(0.435 0.108 56);         /* saddle brown */
+
+  /* SIDEBAR (admin/employee panels) */
+  --sidebar: oklch(0.940 0.015 81);         /* slightly darker cream */
+  --sidebar-foreground: oklch(0.247 0.030 56);
+  --sidebar-primary: oklch(0.617 0.157 56); /* terracotta */
+  --sidebar-primary-foreground: oklch(0.985 0.008 81);
+  --sidebar-accent: oklch(0.905 0.020 81);
+  --sidebar-accent-foreground: oklch(0.364 0.052 56);
+  --sidebar-border: oklch(0.860 0.030 81);
+  --sidebar-ring: oklch(0.617 0.157 56);
 }
 
 @layer base {
@@ -100,13 +109,18 @@
   }
 }
 
-/* Glassmorphism card styles */
+/* ============================================================
+   GLASS / UTILITY STYLES — adjusted for light mode
+   ============================================================ */
+
+/* Glassmorphism card — translucent white over cream bg */
 .glass-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(210, 105, 30, 0.18);
   border-radius: 1rem;
+  box-shadow: 0 4px 24px rgba(160, 82, 45, 0.08);
 }
 
 .glass-card-hover {
@@ -114,81 +128,88 @@
 }
 
 .glass-card-hover:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(210, 105, 30, 0.35);
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(160, 82, 45, 0.15);
 }
 
+/* Glass input — translucent white with dark text */
 .glass-input {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(210, 105, 30, 0.20);
   border-radius: 0.75rem;
-  color: white;
+  color: oklch(0.247 0.030 56); /* dark brown text */
   transition: all 0.2s ease;
 }
 
+.glass-input::placeholder {
+  color: oklch(0.500 0.040 56); /* medium brown placeholder */
+}
+
 .glass-input:focus {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(217, 119, 6, 0.5);          /* amber focus */
-  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(210, 105, 30, 0.55);
+  box-shadow: 0 0 0 3px rgba(210, 105, 30, 0.15);
   outline: none;
 }
 
+/* Glass button — terracotta gradient */
 .glass-button {
-  background: linear-gradient(135deg, rgba(217, 119, 6, 0.6), rgba(146, 64, 14, 0.6));   /* amber -> caramel */
+  background: linear-gradient(135deg, rgba(210, 105, 30, 0.85), rgba(160, 82, 45, 0.85));
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(217, 119, 6, 0.3);
+  border: 1px solid rgba(210, 105, 30, 0.4);
   border-radius: 0.75rem;
-  color: white;
+  color: #fff8ee;
   font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .glass-button:hover {
-  background: linear-gradient(135deg, rgba(217, 119, 6, 0.8), rgba(146, 64, 14, 0.8));
+  background: linear-gradient(135deg, rgba(210, 105, 30, 1), rgba(160, 82, 45, 1));
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(217, 119, 6, 0.3);
+  box-shadow: 0 4px 20px rgba(210, 105, 30, 0.35);
 }
 
 .glass-button-danger {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.6), rgba(220, 38, 38, 0.6));
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.85), rgba(220, 38, 38, 0.85));
+  border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
 .glass-button-danger:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.8), rgba(220, 38, 38, 0.8));
-  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 1), rgba(220, 38, 38, 1));
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35);
 }
 
 .glass-button-success {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.6), rgba(22, 163, 74, 0.6));
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.85), rgba(22, 163, 74, 0.85));
+  border: 1px solid rgba(34, 197, 94, 0.4);
 }
 
 .glass-button-success:hover {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.8), rgba(22, 163, 74, 0.8));
-  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 1), rgba(22, 163, 74, 1));
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.35);
 }
 
-/* Gradient backgrounds (warm coffee-lounge vibe) */
+/* Gradient backgrounds — warm cream tones */
 .bg-gradient-main {
-  background: linear-gradient(135deg, #1a1207, #3b2613, #241609);
+  background: linear-gradient(135deg, #f8f3e9, #ede2cc, #e8e0d0);
 }
 
 .bg-gradient-purple {
-  background: linear-gradient(135deg, rgba(217, 119, 6, 0.15), rgba(146, 64, 14, 0.15));
+  /* Kept class name for backwards compat, now renders warm orange tint */
+  background: linear-gradient(135deg, rgba(210, 105, 30, 0.12), rgba(230, 149, 92, 0.12));
 }
 
 .bg-gradient-accent {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(180, 83, 9, 0.2));
+  background: linear-gradient(135deg, rgba(210, 105, 30, 0.18), rgba(230, 149, 92, 0.18));
 }
 
-/* Animated gradient border */
+/* Animated gradient border — terracotta tones */
 .gradient-border {
   position: relative;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.5);
   border-radius: 1rem;
 }
 
@@ -198,36 +219,36 @@
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(217, 119, 6, 0.5), rgba(245, 158, 11, 0.5), rgba(180, 83, 9, 0.5));
+  background: linear-gradient(135deg, rgba(210, 105, 30, 0.5), rgba(230, 149, 92, 0.5), rgba(160, 82, 45, 0.5));
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
   pointer-events: none;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — terracotta */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(210, 105, 30, 0.05);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(217, 119, 6, 0.3);
+  background: rgba(210, 105, 30, 0.35);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(217, 119, 6, 0.5);
+  background: rgba(210, 105, 30, 0.55);
 }
 
-/* Pulse glow animation */
+/* Pulse glow animation — terracotta */
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 5px rgba(217, 119, 6, 0.2); }
-  50% { box-shadow: 0 0 20px rgba(217, 119, 6, 0.4); }
+  0%, 100% { box-shadow: 0 0 5px rgba(210, 105, 30, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(210, 105, 30, 0.4); }
 }
 
 .animate-pulse-glow {
@@ -244,31 +265,32 @@
   animation: count-up 0.5s ease-out;
 }
 
-/* Game canvas styling */
+/* Game canvas styling — terracotta border */
 .game-canvas {
   border-radius: 1rem;
-  border: 2px solid rgba(217, 119, 6, 0.3);
-  box-shadow: 0 0 30px rgba(217, 119, 6, 0.1);
+  border: 2px solid rgba(210, 105, 30, 0.3);
+  box-shadow: 0 0 30px rgba(210, 105, 30, 0.1);
 }
 
-/* Progress bar custom */
+/* Progress bar custom — terracotta gradient */
 .progress-purple {
-  background: linear-gradient(90deg, #d97706, #f59e0b, #fbbf24);
+  /* Kept class name for backwards compat, now renders terracotta */
+  background: linear-gradient(90deg, #d2691e, #e6955c, #f0b27a);
 }
 
-/* Tab active indicator */
+/* Tab active indicator — terracotta */
 .tab-active {
-  background: linear-gradient(135deg, rgba(217, 119, 6, 0.3), rgba(146, 64, 14, 0.3));
-  border-color: rgba(217, 119, 6, 0.5);
+  background: linear-gradient(135deg, rgba(210, 105, 30, 0.18), rgba(160, 82, 45, 0.18));
+  border-color: rgba(210, 105, 30, 0.4);
 }
 
-/* Mobile bottom nav */
+/* Mobile bottom nav — terracotta active state */
 .mobile-nav-item {
   transition: all 0.2s ease;
 }
 
 .mobile-nav-item.active {
-  color: #f59e0b;
+  color: #d2691e;
 }
 
 .mobile-nav-item.active::after {
@@ -279,7 +301,7 @@
   transform: translateX(-50%);
   width: 20px;
   height: 3px;
-  background: linear-gradient(90deg, #d97706, #f59e0b);
+  background: linear-gradient(90deg, #d2691e, #e6955c);
   border-radius: 2px;
 }
 
