@@ -32,10 +32,18 @@ CREATE TABLE IF NOT EXISTS public.visits (
 );
 
 -- Menu Items
+-- Bilingual columns (name_en/name_ar/description_en/description_ar) are the
+-- source of truth for customer-facing display. The legacy `name` / `description`
+-- columns are kept for backward compatibility and are mirrored from the *_en
+-- values by the application layer.
 CREATE TABLE IF NOT EXISTS public.menu_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
+  name_en TEXT DEFAULT '',
+  name_ar TEXT DEFAULT '',
+  description_en TEXT DEFAULT '',
+  description_ar TEXT DEFAULT '',
   price FLOAT NOT NULL,
   category TEXT DEFAULT 'Main',
   image_url TEXT DEFAULT '',
@@ -46,11 +54,16 @@ CREATE TABLE IF NOT EXISTS public.menu_items (
 
 -- Menu Categories (admin-managed category metadata: name, icon, color, sort order, visibility)
 -- Each row's `name` matches the `category` text stored on menu_items.
--- `display_name` is what customers see in the menu (can differ from internal name).
+-- `display_name` is the legacy customer-facing label (kept for backward compat).
+-- `name_en` / `name_ar` are the bilingual customer-facing labels used by the
+-- new i18n-aware customer view; if either is empty the app falls back to the
+-- other language, then to `display_name`, then to `name`.
 CREATE TABLE IF NOT EXISTS public.menu_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
+  name_en TEXT DEFAULT '',
+  name_ar TEXT DEFAULT '',
   icon TEXT DEFAULT 'UtensilsCrossed',
   color TEXT DEFAULT 'from-amber-500/20 to-orange-500/20',
   sort_order INTEGER DEFAULT 0,
@@ -64,6 +77,10 @@ CREATE TABLE IF NOT EXISTS public.rewards (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
+  name_en TEXT DEFAULT '',
+  name_ar TEXT DEFAULT '',
+  description_en TEXT DEFAULT '',
+  description_ar TEXT DEFAULT '',
   points_cost INTEGER NOT NULL,
   image_url TEXT DEFAULT '',
   available BOOLEAN DEFAULT true,
@@ -772,31 +789,87 @@ INSERT INTO public.app_settings (key, value) VALUES
 ON CONFLICT (key) DO NOTHING;
 
 -- Menu Categories (admin-managed; customer MenuView reads these to render the filter bar + icons)
-INSERT INTO public.menu_categories (name, display_name, icon, color, sort_order, visible) VALUES
-  ('Main',     'Main',     'UtensilsCrossed', 'from-amber-500/20 to-orange-500/20',  0, true),
-  ('Burgers',  'Burgers',  'Beef',            'from-amber-500/20 to-orange-500/20',  1, true),
-  ('Coffee',   'Coffee',   'Coffee',          'from-amber-700/20 to-yellow-600/20', 2, true),
-  ('Salads',   'Salads',   'Salad',           'from-green-500/20 to-emerald-500/20', 3, true),
-  ('Sides',    'Sides',    'Flame',           'from-orange-500/20 to-red-500/20',    4, true),
-  ('Desserts', 'Desserts', 'Cake',            'from-pink-500/20 to-rose-500/20',     5, true)
+INSERT INTO public.menu_categories (name, display_name, name_en, name_ar, icon, color, sort_order, visible) VALUES
+  ('Main',     'Main',     'Main',     'رئيسي',     'UtensilsCrossed', 'from-amber-500/20 to-orange-500/20',  0, true),
+  ('Burgers',  'Burgers',  'Burgers',  'برغر',      'Beef',            'from-amber-500/20 to-orange-500/20',  1, true),
+  ('Coffee',   'Coffee',   'Coffee',   'قهوة',      'Coffee',          'from-amber-700/20 to-yellow-600/20', 2, true),
+  ('Salads',   'Salads',   'Salads',   'سلطات',     'Salad',           'from-green-500/20 to-emerald-500/20', 3, true),
+  ('Sides',    'Sides',    'Sides',    'إضافات',    'Flame',           'from-orange-500/20 to-red-500/20',    4, true),
+  ('Desserts', 'Desserts', 'Desserts', 'حلويات',    'Cake',            'from-pink-500/20 to-rose-500/20',     5, true)
 ON CONFLICT (name) DO NOTHING;
 
 -- Menu Items
-INSERT INTO public.menu_items (name, description, price, category) VALUES
-  ('Classic Burger', 'Juicy beef patty with lettuce, tomato, and special sauce', 12.99, 'Burgers'),
-  ('Cheese Burger', 'Classic burger with melted cheddar cheese', 14.99, 'Burgers'),
-  ('Bacon Burger', 'Classic burger with crispy bacon strips', 16.99, 'Burgers'),
-  ('Veggie Burger', 'Plant-based patty with fresh vegetables', 13.99, 'Burgers'),
-  ('Espresso', 'Rich and bold single shot espresso', 4.99, 'Coffee'),
-  ('Cappuccino', 'Espresso with steamed milk foam', 5.99, 'Coffee'),
-  ('Latte', 'Espresso with steamed milk', 6.49, 'Coffee'),
-  ('Mocha', 'Espresso with chocolate and steamed milk', 6.99, 'Coffee'),
-  ('Caesar Salad', 'Fresh romaine with caesar dressing and croutons', 10.99, 'Salads'),
-  ('Greek Salad', 'Mixed greens with feta and olives', 9.99, 'Salads'),
-  ('French Fries', 'Crispy golden fries with sea salt', 5.99, 'Sides'),
-  ('Onion Rings', 'Beer-battered onion rings', 6.99, 'Sides'),
-  ('Chocolate Cake', 'Rich chocolate layer cake', 8.99, 'Desserts'),
-  ('Cheesecake', 'New York style cheesecake', 7.99, 'Desserts')
+INSERT INTO public.menu_items (name, description, name_en, name_ar, description_en, description_ar, price, category) VALUES
+  ('Classic Burger', 'Juicy beef patty with lettuce, tomato, and special sauce',
+   'Classic Burger', 'برغر كلاسيكي',
+   'Juicy beef patty with lettuce, tomato, and special sauce',
+   'قطعة لحم بقري شهية مع الخس والطماطم والصوص الخاص',
+   12.99, 'Burgers'),
+  ('Cheese Burger', 'Classic burger with melted cheddar cheese',
+   'Cheese Burger', 'برغر بالجبن',
+   'Classic burger with melted cheddar cheese',
+   'برغر كلاسيكي مع جبن الشيدر الذائب',
+   14.99, 'Burgers'),
+  ('Bacon Burger', 'Classic burger with crispy bacon strips',
+   'Bacon Burger', 'برغر باللحم المقدد',
+   'Classic burger with crispy bacon strips',
+   'برغر كلاسيكي مع شرائح اللحم المقدد المقرمشة',
+   16.99, 'Burgers'),
+  ('Veggie Burger', 'Plant-based patty with fresh vegetables',
+   'Veggie Burger', 'برغر نباتي',
+   'Plant-based patty with fresh vegetables',
+   'قطعة نباتية مع خضار طازجة',
+   13.99, 'Burgers'),
+  ('Espresso', 'Rich and bold single shot espresso',
+   'Espresso', 'إسبريسو',
+   'Rich and bold single shot espresso',
+   'جرعة إسبريسو غنية وقوية',
+   4.99, 'Coffee'),
+  ('Cappuccino', 'Espresso with steamed milk foam',
+   'Cappuccino', 'كابتشينو',
+   'Espresso with steamed milk foam',
+   'إسبريسو مع رغوة الحليب المبخّر',
+   5.99, 'Coffee'),
+  ('Latte', 'Espresso with steamed milk',
+   'Latte', 'لاتيه',
+   'Espresso with steamed milk',
+   'إسبريسو مع الحليب المبخّر',
+   6.49, 'Coffee'),
+  ('Mocha', 'Espresso with chocolate and steamed milk',
+   'Mocha', 'موكا',
+   'Espresso with chocolate and steamed milk',
+   'إسبريسو مع الشوكولاتة والحليب المبخّر',
+   6.99, 'Coffee'),
+  ('Caesar Salad', 'Fresh romaine with caesar dressing and croutons',
+   'Caesar Salad', 'سلطة سيزر',
+   'Fresh romaine with caesar dressing and croutons',
+   'خس روماني طازج مع صوص سيزر والخبز المحمّص',
+   10.99, 'Salads'),
+  ('Greek Salad', 'Mixed greens with feta and olives',
+   'Greek Salad', 'سلطة يونانية',
+   'Mixed greens with feta and olives',
+   'خضار ورقية مشكّلة مع جبن الفيتا والزيتون',
+   9.99, 'Salads'),
+  ('French Fries', 'Crispy golden fries with sea salt',
+   'French Fries', 'بطاطس مقلية',
+   'Crispy golden fries with sea salt',
+   'بطاطس ذهبية مقرمشة مع ملح البحر',
+   5.99, 'Sides'),
+  ('Onion Rings', 'Beer-battered onion rings',
+   'Onion Rings', 'حلقات البصل',
+   'Beer-battered onion rings',
+   'حلقات البصل المقلية بعجينة البيرة',
+   6.99, 'Sides'),
+  ('Chocolate Cake', 'Rich chocolate layer cake',
+   'Chocolate Cake', 'كيك الشوكولاتة',
+   'Rich chocolate layer cake',
+   'كيك طبقات الشوكولاتة الغنية',
+   8.99, 'Desserts'),
+  ('Cheesecake', 'New York style cheesecake',
+   'Cheesecake', 'تشيز كيك',
+   'New York style cheesecake',
+   'تشيز كيك على الطريقة النيويوركية',
+   7.99, 'Desserts')
 ON CONFLICT DO NOTHING;
 
 -- =============================================
@@ -839,15 +912,55 @@ CREATE POLICY "Admins can delete menu images"
   USING (bucket_id = 'menu-images' AND public.is_admin());
 
 -- Rewards
-INSERT INTO public.rewards (name, description, points_cost) VALUES
-  ('Free Espresso', 'Enjoy a free espresso on us!', 100),
-  ('Free Cappuccino', 'A complimentary cappuccino', 150),
-  ('Free French Fries', 'Crispy fries for free', 200),
-  ('$5 Off Your Order', 'Get $5 discount on any order', 250),
-  ('Free Caesar Salad', 'Fresh caesar salad on the house', 350),
-  ('Free Classic Burger', 'Our signature burger for free', 500),
-  ('Free Dessert', 'Choose any dessert from our menu', 300),
-  ('Buy 1 Get 1 Coffee', 'Get two coffees for the price of one', 180),
-  ('$10 Off Your Order', 'Get $10 discount on any order', 500),
-  ('VIP Experience', 'Priority seating + free appetizer', 1000)
+INSERT INTO public.rewards (name, description, name_en, name_ar, description_en, description_ar, points_cost) VALUES
+  ('Free Espresso',         'Enjoy a free espresso on us!',
+   'Free Espresso',         'إسبريسو مجاني',
+   'Enjoy a free espresso on us!',
+   'استمتع بإسبريسو مجاني منّا!',
+   100),
+  ('Free Cappuccino',       'A complimentary cappuccino',
+   'Free Cappuccino',       'كابتشينو مجاني',
+   'A complimentary cappuccino',
+   'كابتشينو مجاني على حسابنا',
+   150),
+  ('Free French Fries',     'Crispy fries for free',
+   'Free French Fries',     'بطاطس مقلية مجانية',
+   'Crispy fries for free',
+   'بطاطس مقلية مقرمشة مجاناً',
+   200),
+  ('$5 Off Your Order',     'Get $5 discount on any order',
+   '$5 Off Your Order',     'خصم 5$ على طلبك',
+   'Get $5 discount on any order',
+   'احصل على خصم 5$ على أي طلب',
+   250),
+  ('Free Caesar Salad',     'Fresh caesar salad on the house',
+   'Free Caesar Salad',     'سلطة سيزر مجانية',
+   'Fresh caesar salad on the house',
+   'سلطة سيزر طازجة على حسابنا',
+   350),
+  ('Free Classic Burger',   'Our signature burger for free',
+   'Free Classic Burger',   'برغر كلاسيكي مجاني',
+   'Our signature burger for free',
+   'برغرنا المميز مجاناً',
+   500),
+  ('Free Dessert',          'Choose any dessert from our menu',
+   'Free Dessert',          'حلى مجاني',
+   'Choose any dessert from our menu',
+   'اختر أي حلى من قائمتنا',
+   300),
+  ('Buy 1 Get 1 Coffee',    'Get two coffees for the price of one',
+   'Buy 1 Get 1 Coffee',    'اشترِ واحدًا واحصل على قهوة مجانية',
+   'Get two coffees for the price of one',
+   'احصل على قهوتين بسعر قهوة واحدة',
+   180),
+  ('$10 Off Your Order',    'Get $10 discount on any order',
+   '$10 Off Your Order',    'خصم 10$ على طلبك',
+   'Get $10 discount on any order',
+   'احصل على خصم 10$ على أي طلب',
+   500),
+  ('VIP Experience',        'Priority seating + free appetizer',
+   'VIP Experience',        'تجربة VIP',
+   'Priority seating + free appetizer',
+   'مقعد أولوية + مقبلات مجانية',
+   1000)
 ON CONFLICT DO NOTHING;

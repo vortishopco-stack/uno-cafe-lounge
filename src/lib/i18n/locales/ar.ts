@@ -126,6 +126,9 @@ const ar: Record<string, string> = {
   browseOfferings: 'تصفح عروضنا الشهية',
   noItemsInCategory: 'لا توجد عناصر في هذا التصنيف',
   all: 'الكل',
+  searchMenu: 'ابحث في القائمة',
+  searchMenuPlaceholder: 'ابحث بالاسم بالعربية أو الإنجليزية',
+  noSearchResults: 'لا توجد عناصر مطابقة لبحثك',
 
   // History View
   history: 'السجل',
@@ -151,7 +154,7 @@ const ar: Record<string, string> = {
   processing: 'جاري المعالجة...',
   searchCustomerFirst: 'ابحث عن عميل أولاً',
   searchCustomer: 'البحث عن عميل',
-  enterPhone: 'أدخل رقم هاتف',
+  // Note: enterPhone is already defined in the Auth section above and reused here.
   customerNotFound: 'العميل غير موجود',
   found: 'تم العثور على: {name}',
   enterValidAmount: 'أدخل مبلغ فاتورة صالح',
@@ -235,6 +238,20 @@ const ar: Record<string, string> = {
   itemNowAvailable: 'العنصر مرئي الآن في القائمة',
   itemNowHidden: 'العنصر مخفي الآن من القائمة',
   failedToUpdate: 'فشل التحديث',
+
+  // Bilingual fields
+  englishSection: 'الإنجليزية',
+  arabicSection: 'العربية',
+  nameEn: 'الاسم (إنجليزي)',
+  nameAr: 'الاسم (عربي)',
+  nameEnPlaceholder: 'أدخل الاسم بالإنجليزية',
+  nameArPlaceholder: 'أدخل الاسم بالعربية',
+  descriptionEn: 'الوصف (إنجليزي)',
+  descriptionAr: 'الوصف (عربي)',
+  descriptionEnPlaceholder: 'أدخل الوصف بالإنجليزية',
+  descriptionArPlaceholder: 'أدخل الوصف بالعربية',
+  nameEnOrArRequired: 'يجب إدخال اسم واحد على الأقل (إنجليزي أو عربي)',
+  bilingualHint: 'يرى العملاء الحقل الذي يطابق لغتهم المختارة. إذا كان أحدهما فارغاً يُعرض الآخر كبديل.',
 
   // Admin Menu Categories
   menuCategories: 'تصنيفات القائمة',

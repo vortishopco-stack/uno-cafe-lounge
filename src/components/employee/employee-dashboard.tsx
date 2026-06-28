@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/auth-store'
 import { useAppStore, type EmployeeView } from '@/store/app-store'
 import { api } from '@/lib/api'
 import { useT } from '@/lib/i18n'
+import { localizedName, localizedDescription } from '@/lib/i18n/bilingual'
 import { LanguageSwitcher } from '@/components/ui/language-switcher'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,7 +22,7 @@ import { toast } from 'sonner'
 import { BRAND } from '@/lib/brand'
 
 export function EmployeeDashboard() {
-  const { t } = useT()
+  const { t, locale } = useT()
   const { logout } = useAuthStore()
   const { employeeView, setEmployeeView } = useAppStore()
   const [searchPhone, setSearchPhone] = useState('')
@@ -358,12 +359,16 @@ export function EmployeeDashboard() {
             <div className="space-y-3">
               {rewards.map(reward => {
                 const canAfford = selectedCustomer.points >= reward.pointsCost
+                // Localized name/description (falls back to legacy `name` /
+                // `description` column for rewards created before this change).
+                const displayName = localizedName(reward, locale)
+                const displayDescription = localizedDescription(reward, locale)
                 return (
                   <Card key={reward.id} className={`glass-card border-0 ${canAfford ? '' : 'opacity-50'}`}>
                     <CardContent className="p-4 flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm">{reward.name}</h4>
-                        <p className="text-xs text-muted-foreground truncate">{reward.description}</p>
+                        <h4 className="font-semibold text-sm">{displayName}</h4>
+                        <p className="text-xs text-muted-foreground truncate">{displayDescription}</p>
                         <div className="flex items-center gap-1 mt-1">
                           <Coins className="w-3 h-3 text-yellow-400" />
                           <span className="text-sm font-bold text-yellow-400">{reward.pointsCost} pts</span>
