@@ -1,21 +1,32 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useT } from '@/lib/i18n'
+import { localizedName, localizedDescription, matchesBilingualQuery } from '@/lib/i18n/bilingual'
+import { formatCurrency } from '@/lib/currency'
 import { api } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   UtensilsCrossed, Coffee, Salad, Beef, Cake, Flame,
   Pizza, Soup, IceCream, Croissant, Wine, Fish, Drumstick,
   Cookie, Sandwich, GlassWater, Apple, Carrot,
-  Egg, Wheat, Donut, CupSoda,
+  Egg, Wheat, Donut, CupSoda, Search,
 } from 'lucide-react'
 
 interface MenuItem {
   id: string
   name: string
   description: string
+  name_en?: string
+  name_ar?: string
+  description_en?: string
+  description_ar?: string
+  nameEn?: string
+  nameAr?: string
+  descriptionEn?: string
+  descriptionAr?: string
   price: number
   category: string
   imageUrl: string
@@ -26,6 +37,10 @@ interface MenuCategory {
   id: string
   name: string
   displayName: string
+  name_en?: string
+  name_ar?: string
+  nameEn?: string
+  nameAr?: string
   icon: string
   color: string
   sortOrder: number
@@ -93,12 +108,13 @@ function resolveColor(colorClasses: string | undefined, categoryName: string) {
 }
 
 export function MenuView() {
-  const { t } = useT()
+  const { t, locale } = useT()
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     api.getMenu()
@@ -116,7 +132,7 @@ export function MenuView() {
 
   const categoryFilterList: { key: string; label: string }[] =
     visibleCategories.length > 0
-      ? visibleCategories.map(c => ({ key: c.name, label: c.displayName || c.name }))
+      ? visibleCategories.map(c => ({ key: c.name, label: localizedName(c, locale) }))
       : Array.from(new Set(menuItems.map(item => item.category)))
           .map(name => ({ key: name, label: name }))
 
@@ -128,9 +144,15 @@ export function MenuView() {
     ? activeCategory
     : 'All'
 
-  const filteredItems = effectiveActiveCategory === 'All'
-    ? menuItems
-    : menuItems.filter(item => item.category === effectiveActiveCategory)
+  // Apply category filter + bilingual search (English OR Arabic).
+  const filteredItems = useMemo(() => {
+    const inCategory = effectiveActiveCategory === 'All'
+      ? menuItems
+      : menuItems.filter(item => item.category === effectiveActiveCategory)
+
+    if (!searchQuery.trim()) return inCategory
+    return inCategory.filter(item => matchesBilingualQuery(item, searchQuery))
+  }, [menuItems, effectiveActiveCategory, searchQuery])
 
   // Look up a category's config by its `name` (which matches item.category)
   const categoryByName = (name: string) => categories.find(c => c.name === name)
@@ -169,6 +191,19 @@ export function MenuView() {
         <p className="text-sm text-muted-foreground mt-1">{t('browseOfferings')}</p>
       </div>
 
+      {/* Search box — works across English AND Arabic fields */}
+      <div className="relative">
+        <Search className="absolute top-1/2 -translate-y-1/2 start-3 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder={t('searchMenuPlaceholder')}
+          className="glass-input h-10 ps-9 pe-3"
+          aria-label={t('searchMenu')}
+        />
+      </div>
+
       {/* Category Filter */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
         {categoriesWithAll.map(cat => {
@@ -196,6 +231,8 @@ export function MenuView() {
           const CatIcon = resolveIcon(catConfig?.icon, item.category)
           const colorClass = resolveColor(catConfig?.color, item.category)
           const hasImage = item.imageUrl && !imageErrors.has(item.id)
+          const displayName = localizedName(item, locale)
+          const displayDescription = localizedDescription(item, locale)
 
           return (
             <Card key={item.id} className="glass-card border-0 glass-card-hover overflow-hidden">
@@ -205,7 +242,7 @@ export function MenuView() {
                   {hasImage ? (
                     <img
                       src={item.imageUrl}
-                      alt={item.name}
+                      alt={displayName}
                       className="w-full h-full object-cover"
                       onError={() => handleImageError(item.id)}
                     />
@@ -217,7 +254,7 @@ export function MenuView() {
                   {/* Price overlay */}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
                     <p className="text-sm font-bold text-green-400">
-                      ${item.price.toFixed(2)}
+                      {formatCurrency(item.price, locale)}
                     </p>
                   </div>
                 </div>
@@ -229,15 +266,15 @@ export function MenuView() {
                     variant="outline"
                     className="text-[9px] px-1.5 py-0 mb-1.5 border-white/10 text-muted-foreground"
                   >
-                    {catConfig?.displayName || item.category}
+                    {catConfig ? localizedName(catConfig, locale) : item.category}
                   </Badge>
 
                   {/* Name */}
-                  <h3 className="font-semibold text-sm leading-tight">{item.name}</h3>
+                  <h3 className="font-semibold text-sm leading-tight">{displayName}</h3>
 
                   {/* Description */}
                   <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                    {item.description}
+                    {displayDescription}
                   </p>
                 </div>
               </CardContent>
@@ -249,7 +286,9 @@ export function MenuView() {
       {filteredItems.length === 0 && (
         <div className="glass-card p-8 text-center">
           <UtensilsCrossed className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">{t('noItemsInCategory')}</p>
+          <p className="text-sm text-muted-foreground">
+            {searchQuery.trim() ? t('noSearchResults') : t('noItemsInCategory')}
+          </p>
         </div>
       )}
     </div>

@@ -1,22 +1,30 @@
 -- =============================================================
--- Migration: Add new games + per-game Show/Hide visibility
+-- Migration: Remove the "Predict the Match" game
 -- =============================================================
--- Run this in the Supabase SQL Editor if you already deployed
--- the app before the "more games + hide/show" update.
--- Safe to re-run (uses IF NOT EXISTS / ON CONFLICT / OR REPLACE).
+-- Run this in the Supabase SQL Editor to clean up an EXISTING
+-- deployment after the predict_match game was removed from the
+-- app. Safe to re-run.
 --
 -- What this does:
---   1. Re-creates play_game() so it knows about the new games
---      (shoot_target, lucky_scratch) and blocks plays of games the
---      admin has hidden. (predict_match was removed from the app.)
---   2. Inserts default app_settings rows for the new games
---      (cost, cooldown, enabled=true).
---   3. Inserts enabled='true' for the original games so the
---      Show/Hide toggle has a baseline for them too.
---   4. Cleans up any leftover predict_match settings rows.
+--   1. Drops the three app_settings rows that configured
+--      predict_match (cost / cooldown / enabled).
+--   2. Re-creates play_game() so its CASE statements no longer
+--      reference predict_match (purely cosmetic — the function
+--      would still work with the rows gone, but this keeps the
+--      function body in sync with the app).
+--   3. Leaves game_history rows for predict_match untouched so
+--      customers' historical play records remain intact.
 -- =============================================================
 
--- 1) Updated play_game() with the new game types + hide-check
+-- 1) Remove predict_match settings rows
+DELETE FROM public.app_settings
+WHERE key IN (
+  'game_cost_predict_match',
+  'game_cooldown_predict_match',
+  'game_enabled_predict_match'
+);
+
+-- 2) Re-create play_game() without the predict_match cases
 CREATE OR REPLACE FUNCTION public.play_game(
   p_customer_id UUID,
   p_game_type TEXT,
@@ -127,30 +135,6 @@ BEGIN
 END;
 $$;
 
--- 2) Default settings for the NEW games (cost / cooldown / enabled)
-INSERT INTO public.app_settings (key, value) VALUES
-  ('game_cost_shoot_target', '60'),
-  ('game_cost_lucky_scratch', '40'),
-  ('game_cooldown_shoot_target', '7'),
-  ('game_cooldown_lucky_scratch', '3')
-ON CONFLICT (key) DO NOTHING;
-
--- 3) enabled='true' baseline for ALL five games (so the toggle works everywhere)
-INSERT INTO public.app_settings (key, value) VALUES
-  ('game_enabled_burger_catch', 'true'),
-  ('game_enabled_coffee_shooter', 'true'),
-  ('game_enabled_grand_wheel', 'true'),
-  ('game_enabled_shoot_target', 'true'),
-  ('game_enabled_lucky_scratch', 'true')
-ON CONFLICT (key) DO NOTHING;
-
--- 4) Clean up any leftover predict_match settings rows (the game was removed)
-DELETE FROM public.app_settings
-WHERE key IN (
-  'game_cost_predict_match',
-  'game_cooldown_predict_match',
-  'game_enabled_predict_match'
-);
-
--- Done. Refresh the app — you will now see 5 games in the customer
--- Games hub and 5 Show/Hide toggles in Admin → Settings → Game Settings.
+-- Done. The Predict the Match game is now fully removed from the database.
+-- Customer UI no longer shows it (the app's GameType union was also updated).
+-- Historical game_history rows for predict_match are preserved for analytics.

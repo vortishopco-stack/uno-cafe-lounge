@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth-store'
 import { useT } from '@/lib/i18n'
+import { localizedName, localizedDescription } from '@/lib/i18n/bilingual'
 import { api } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +13,14 @@ interface Reward {
   id: string
   name: string
   description: string
+  name_en?: string
+  name_ar?: string
+  description_en?: string
+  description_ar?: string
+  nameEn?: string
+  nameAr?: string
+  descriptionEn?: string
+  descriptionAr?: string
   pointsCost: number
   imageUrl: string
   available: boolean
@@ -23,7 +32,7 @@ interface RewardsStoreProps {
 
 export function RewardsStore({ onRefresh }: RewardsStoreProps) {
   const { user } = useAuthStore()
-  const { t } = useT()
+  const { t, locale } = useT()
   const [rewards, setRewards] = useState<Reward[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -79,6 +88,12 @@ export function RewardsStore({ onRefresh }: RewardsStoreProps) {
       <div className="grid grid-cols-2 gap-4">
         {rewards.map(reward => {
           const canAfford = (user?.points || 0) >= reward.pointsCost
+          // Pick the localized name/description based on the customer's
+          // selected language. Falls back to the other language, then to
+          // the legacy `name` / `description` column. Never blank.
+          const displayName = localizedName(reward, locale)
+          const displayDescription = localizedDescription(reward, locale)
+
           return (
             <Card key={reward.id} className={`glass-card border-0 overflow-hidden ${canAfford ? 'glass-card-hover' : 'opacity-60'}`}>
               <CardContent className="p-4">
@@ -87,8 +102,8 @@ export function RewardsStore({ onRefresh }: RewardsStoreProps) {
                   <Gift className="w-10 h-10 text-pink-400/50" />
                 </div>
 
-                <h3 className="font-semibold text-sm truncate">{reward.name}</h3>
-                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{reward.description}</p>
+                <h3 className="font-semibold text-sm truncate">{displayName}</h3>
+                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{displayDescription}</p>
 
                 <div className="flex items-center gap-1 mt-2">
                   <Coins className="w-3 h-3 text-yellow-400" />
