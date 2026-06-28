@@ -95,8 +95,6 @@ const en = {
   coffeeShooterDesc: 'Shoot coffee cups as they appear! Test your reflexes.',
   grandWheelName: 'Grand Wheel',
   grandWheelDesc: 'Spin the wheel for a chance at big rewards! Monthly cooldown.',
-  predictMatchName: 'Predict the Match',
-  predictMatchDesc: 'Predict the result of the match! Pick Home, Draw or Away and win big.',
   shootTargetName: 'Shoot on Target',
   shootTargetDesc: 'Take 5 penalty shots! Aim past the keeper to score goals.',
   luckyScratchName: 'Lucky Scratch',
@@ -126,6 +124,9 @@ const en = {
   browseOfferings: 'Browse our delicious offerings',
   noItemsInCategory: 'No items in this category',
   all: 'All',
+  searchMenu: 'Search menu',
+  searchMenuPlaceholder: 'Search by name in English or Arabic',
+  noSearchResults: 'No items match your search',
 
   // History View
   history: 'History',
@@ -151,7 +152,7 @@ const en = {
   processing: 'Processing...',
   searchCustomerFirst: 'Search for a customer first',
   searchCustomer: 'Search Customer',
-  enterPhone: 'Enter a phone number',
+  // Note: enterPhone is already defined in the Auth section above and reused here.
   customerNotFound: 'Customer not found',
   found: 'Found: {name}',
   enterValidAmount: 'Enter a valid invoice amount',
@@ -235,6 +236,20 @@ const en = {
   itemNowAvailable: 'Item is now visible in menu',
   itemNowHidden: 'Item is now hidden from menu',
   failedToUpdate: 'Failed to update',
+
+  // Bilingual fields
+  englishSection: 'English',
+  arabicSection: 'Arabic',
+  nameEn: 'Name (English)',
+  nameAr: 'Name (Arabic)',
+  nameEnPlaceholder: 'Enter the English name',
+  nameArPlaceholder: 'Enter the Arabic name',
+  descriptionEn: 'Description (English)',
+  descriptionAr: 'Description (Arabic)',
+  descriptionEnPlaceholder: 'Enter the English description',
+  descriptionArPlaceholder: 'Enter the Arabic description',
+  nameEnOrArRequired: 'At least one name (English or Arabic) is required',
+  bilingualHint: 'Customers see the field that matches their selected language. If one is empty, the other is shown as a fallback.',
 
   // Admin Menu Categories
   menuCategories: 'Menu Categories',

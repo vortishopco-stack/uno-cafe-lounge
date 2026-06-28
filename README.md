@@ -18,7 +18,7 @@ deployment. Fully bilingual (English + Arabic, RTL).
 - Points dashboard with live balance
 - Daily sign-in streaks with bonus multipliers
 - Menu browsing (public — no login needed)
-- **6 mini-games** (see below)
+- **5 mini-games** (see below)
 - Missions / challenges with point rewards
 - Rewards store
 - Visit & game history
@@ -56,7 +56,6 @@ deployment. Fully bilingual (English + Arabic, RTL).
 | 🍔 **Cup Catch** | Catch falling items in a basket | Show/Hide |
 | ☕ **Bean Shooter** | Shoot coffee beans at targets | Show/Hide |
 | 🎡 **Lounge Wheel** | Spin the wheel for instant prizes | Show/Hide |
-| ⚽ **Predict the Match** | Predict a football match result | Show/Hide |
 | 🥅 **Shoot on Target** | 5 penalty shots vs a diving keeper | Show/Hide |
 | 🎟️ **Lucky Scratch** | Scratch card instant win | Show/Hide |
 
@@ -132,7 +131,7 @@ uno-cafe-lounge/
    - 6 menu categories (Main, Burgers, Coffee, Salads, Sides, Desserts)
    - 24 menu items (cafe-themed)
    - 12 rewards
-   - 6 games with default costs/cooldowns
+   - 5 games with default costs/cooldowns
    - Default app settings (points per $, signup bonus, etc.)
 
 ### Step 4 — Create demo users (optional but recommended)
