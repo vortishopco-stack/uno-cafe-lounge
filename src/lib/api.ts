@@ -1,5 +1,38 @@
 import { supabase, phoneToEmail } from '@/lib/supabase'
 
+/**
+ * Bilingual field definitions shared by the menu CRUD methods.
+ *
+ * The Supabase schema stores both `name_en` / `name_ar` (and
+ * `description_en` / `description_ar`) on `menu_items`, and `name_en` /
+ * `name_ar` on `menu_categories`. The legacy `name` / `description` /
+ * `display_name` columns are kept in sync by these methods for backward
+ * compatibility with any older code paths that still read them.
+ */
+export interface BilingualMenuItemInput {
+  name?: string
+  nameEn?: string
+  nameAr?: string
+  description?: string
+  descriptionEn?: string
+  descriptionAr?: string
+  price?: number
+  category?: string
+  imageUrl?: string
+  available?: boolean
+}
+
+export interface BilingualCategoryInput {
+  name?: string
+  nameEn?: string
+  nameAr?: string
+  displayName?: string
+  icon?: string
+  color?: string
+  visible?: boolean
+  sortOrder?: number
+}
+
 class ApiClient {
   // ========== AUTH ==========
 
@@ -188,7 +221,9 @@ class ApiClient {
 
     const categories = (categoriesResult.data || []).map(c => ({
       ...c,
-      displayName: c.display_name,
+      nameEn: c.name_en ?? '',
+      nameAr: c.name_ar ?? '',
+      displayName: c.display_name ?? c.name ?? '',
       sortOrder: c.sort_order,
       createdAt: c.created_at,
       updatedAt: c.updated_at,
@@ -202,7 +237,16 @@ class ApiClient {
 
     const menuItems = (itemsResult.data || [])
       .filter(item => !hiddenNames.has(item.category))
-      .map(item => ({ ...item, imageUrl: item.image_url, createdAt: item.created_at, updatedAt: item.updated_at }))
+      .map(item => ({
+        ...item,
+        nameEn: item.name_en ?? '',
+        nameAr: item.name_ar ?? '',
+        descriptionEn: item.description_en ?? '',
+        descriptionAr: item.description_ar ?? '',
+        imageUrl: item.image_url,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+      }))
 
     return { menuItems, categories }
   }
@@ -214,7 +258,18 @@ class ApiClient {
       .order('category', { ascending: true })
 
     if (error) throw new Error(error.message)
-    return { menuItems: (data || []).map(item => ({ ...item, imageUrl: item.image_url, createdAt: item.created_at, updatedAt: item.updated_at })) }
+    return {
+      menuItems: (data || []).map(item => ({
+        ...item,
+        nameEn: item.name_en ?? '',
+        nameAr: item.name_ar ?? '',
+        descriptionEn: item.description_en ?? '',
+        descriptionAr: item.description_ar ?? '',
+        imageUrl: item.image_url,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+      })),
+    }
   }
 
   // ========== MENU CATEGORIES ==========
@@ -230,7 +285,9 @@ class ApiClient {
     return {
       categories: (data || []).map(c => ({
         ...c,
-        displayName: c.display_name,
+        nameEn: c.name_en ?? '',
+        nameAr: c.name_ar ?? '',
+        displayName: c.display_name ?? c.name ?? '',
         sortOrder: c.sort_order,
         createdAt: c.created_at,
         updatedAt: c.updated_at,
@@ -240,17 +297,27 @@ class ApiClient {
 
   async createMenuCategory(data: {
     name: string
-    displayName: string
+    displayName?: string
+    nameEn?: string
+    nameAr?: string
     icon?: string
     color?: string
     visible?: boolean
     sortOrder?: number
   }) {
+    const nameEn = (data.nameEn ?? '').trim()
+    const nameAr = (data.nameAr ?? '').trim()
+    const internalName = data.name.trim()
+    // Sync legacy display_name + name to the English value (or Arabic, or internal name)
+    // so any older code that reads `display_name` / `name` still works correctly.
+    const displayName = (data.displayName ?? '').trim() || nameEn || nameAr || internalName
     const { data: result, error } = await supabase
       .from('menu_categories')
       .insert({
-        name: data.name.trim(),
-        display_name: data.displayName.trim() || data.name.trim(),
+        name: internalName,
+        display_name: displayName,
+        name_en: nameEn,
+        name_ar: nameAr,
         icon: data.icon || 'UtensilsCrossed',
         color: data.color || 'from-amber-500/20 to-orange-500/20',
         visible: data.visible !== undefined ? data.visible : true,
@@ -266,6 +333,8 @@ class ApiClient {
   async updateMenuCategory(id: string, data: {
     name?: string
     displayName?: string
+    nameEn?: string
+    nameAr?: string
     icon?: string
     color?: string
     visible?: boolean
@@ -273,7 +342,15 @@ class ApiClient {
   }) {
     const updateData: any = {}
     if (data.name !== undefined) updateData.name = data.name.trim()
-    if (data.displayName !== undefined) updateData.display_name = data.displayName.trim()
+    if (data.nameEn !== undefined) updateData.name_en = data.nameEn.trim()
+    if (data.nameAr !== undefined) updateData.name_ar = data.nameAr.trim()
+    if (data.displayName !== undefined) {
+      updateData.display_name = data.displayName.trim()
+    } else if (data.nameEn !== undefined) {
+      // Keep legacy display_name in sync with the English name when the admin
+      // only updated the bilingual fields. Use English (or Arabic fallback).
+      updateData.display_name = data.nameEn.trim() || data.nameAr?.trim() || updateData.name
+    }
     if (data.icon !== undefined) updateData.icon = data.icon
     if (data.color !== undefined) updateData.color = data.color
     if (data.visible !== undefined) updateData.visible = data.visible
@@ -349,10 +426,33 @@ class ApiClient {
     }
   }
 
-  async createMenuItem(data: { name: string; description: string; price: number; category: string; imageUrl?: string }) {
+  async createMenuItem(data: {
+    name: string
+    description?: string
+    nameEn?: string
+    nameAr?: string
+    descriptionEn?: string
+    descriptionAr?: string
+    price: number
+    category: string
+    imageUrl?: string
+  }) {
+    const nameEn = (data.nameEn ?? '').trim()
+    const nameAr = (data.nameAr ?? '').trim()
+    const descriptionEn = (data.descriptionEn ?? '').trim()
+    const descriptionAr = (data.descriptionAr ?? '').trim()
+    // Sync legacy name/description columns with the English values (or Arabic
+    // fallback) so any older code reading `name` / `description` keeps working.
+    const syncName = nameEn || nameAr || data.name
+    const syncDescription = descriptionEn || descriptionAr || data.description || ''
+
     const { data: result, error } = await supabase.from('menu_items').insert({
-      name: data.name,
-      description: data.description,
+      name: syncName,
+      description: syncDescription,
+      name_en: nameEn,
+      name_ar: nameAr,
+      description_en: descriptionEn,
+      description_ar: descriptionAr,
       price: data.price,
       category: data.category,
       image_url: data.imageUrl || '',
@@ -362,14 +462,38 @@ class ApiClient {
     return { menuItem: result }
   }
 
-  async updateMenuItem(id: string, data: any) {
+  async updateMenuItem(id: string, data: {
+    name?: string
+    description?: string
+    nameEn?: string
+    nameAr?: string
+    descriptionEn?: string
+    descriptionAr?: string
+    price?: number
+    category?: string
+    imageUrl?: string
+    available?: boolean
+  }) {
     const updateData: any = {}
     if (data.name !== undefined) updateData.name = data.name
     if (data.description !== undefined) updateData.description = data.description
+    if (data.nameEn !== undefined) updateData.name_en = data.nameEn.trim()
+    if (data.nameAr !== undefined) updateData.name_ar = data.nameAr.trim()
+    if (data.descriptionEn !== undefined) updateData.description_en = data.descriptionEn.trim()
+    if (data.descriptionAr !== undefined) updateData.description_ar = data.descriptionAr.trim()
     if (data.price !== undefined) updateData.price = data.price
     if (data.category !== undefined) updateData.category = data.category
     if (data.imageUrl !== undefined) updateData.image_url = data.imageUrl
     if (data.available !== undefined) updateData.available = data.available
+
+    // Keep legacy name/description in sync when bilingual fields are updated.
+    if (data.nameEn !== undefined && data.name === undefined) {
+      updateData.name = data.nameEn.trim() || data.nameAr?.trim() || updateData.name
+    }
+    if (data.descriptionEn !== undefined && data.description === undefined) {
+      updateData.description =
+        data.descriptionEn.trim() || data.descriptionAr?.trim() || updateData.description || ''
+    }
 
     const { data: result, error } = await supabase
       .from('menu_items')

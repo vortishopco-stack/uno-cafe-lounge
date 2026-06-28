@@ -10,6 +10,7 @@ import { LanguageSwitcher } from '@/components/ui/language-switcher'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -113,15 +114,66 @@ export function AdminDashboard() {
   // Edit states
   const [editingMenuItem, setEditingMenuItem] = useState<string | null>(null)
   const [editingReward, setEditingReward] = useState<string | null>(null)
-  const [newMenuItem, setNewMenuItem] = useState({ name: '', description: '', price: '', category: 'Main', imageUrl: '' })
+  // Bilingual Menu Item create state — `name` and `description` are kept in
+  // sync with the English values to preserve backward compatibility with any
+  // legacy code paths that still read those columns.
+  const [newMenuItem, setNewMenuItem] = useState<{
+    name: string
+    nameEn: string
+    nameAr: string
+    description: string
+    descriptionEn: string
+    descriptionAr: string
+    price: string
+    category: string
+    imageUrl: string
+  }>({
+    name: '',
+    nameEn: '',
+    nameAr: '',
+    description: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    price: '',
+    category: 'Main',
+    imageUrl: '',
+  })
   const [newMenuImageFile, setNewMenuImageFile] = useState<File | null>(null)
   const [editingMenuItemId, setEditingMenuItemId] = useState<string | null>(null)
   const menuImageInputRef = useRef<HTMLInputElement>(null)
   const editMenuImageInputRef = useRef<HTMLInputElement>(null)
-  // Category management state
-  const [newCategory, setNewCategory] = useState({ name: '', displayName: '', icon: 'UtensilsCrossed', color: CATEGORY_COLOR_OPTIONS[0].classes })
+  // Category management state — bilingual display names
+  const [newCategory, setNewCategory] = useState<{
+    name: string
+    nameEn: string
+    nameAr: string
+    displayName: string
+    icon: string
+    color: string
+  }>({
+    name: '',
+    nameEn: '',
+    nameAr: '',
+    displayName: '',
+    icon: 'UtensilsCrossed',
+    color: CATEGORY_COLOR_OPTIONS[0].classes,
+  })
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
-  const [editCategoryData, setEditCategoryData] = useState({ name: '', displayName: '', icon: 'UtensilsCrossed', color: CATEGORY_COLOR_OPTIONS[0].classes })
+  const [editCategoryData, setEditCategoryData] = useState<{
+    name: string
+    nameEn: string
+    nameAr: string
+    displayName: string
+    icon: string
+    color: string
+  }>({
+    name: '',
+    nameEn: '',
+    nameAr: '',
+    displayName: '',
+    icon: 'UtensilsCrossed',
+    color: CATEGORY_COLOR_OPTIONS[0].classes,
+  })
   const [newReward, setNewReward] = useState({ name: '', description: '', pointsCost: '' })
   const [newMission, setNewMission] = useState({ type: 'custom', title: '', target: '', points: '', forAll: true, customerId: '' })
   const [editingMission, setEditingMission] = useState<string | null>(null)
@@ -189,7 +241,8 @@ export function AdminDashboard() {
   }
 
   const handleCreateMenuItem = async () => {
-    if (!newMenuItem.name || !newMenuItem.price) {
+    // Require at least ONE name (English OR Arabic) + a price.
+    if ((!newMenuItem.nameEn.trim() && !newMenuItem.nameAr.trim()) || !newMenuItem.price) {
       toast.error(t('nameAndPriceRequired'))
       return
     }
@@ -199,13 +252,28 @@ export function AdminDashboard() {
         imageUrl = await api.uploadMenuImage(newMenuImageFile)
       }
       await api.createMenuItem({
-        name: newMenuItem.name,
-        description: newMenuItem.description,
+        // Use English (or Arabic fallback) as the legacy `name` for backward compat.
+        name: newMenuItem.nameEn.trim() || newMenuItem.nameAr.trim(),
+        description: newMenuItem.descriptionEn.trim() || newMenuItem.descriptionAr.trim(),
+        nameEn: newMenuItem.nameEn,
+        nameAr: newMenuItem.nameAr,
+        descriptionEn: newMenuItem.descriptionEn,
+        descriptionAr: newMenuItem.descriptionAr,
         price: parseFloat(newMenuItem.price),
         category: newMenuItem.category,
         imageUrl,
       })
-      setNewMenuItem({ name: '', description: '', price: '', category: 'Main', imageUrl: '' })
+      setNewMenuItem({
+        name: '',
+        nameEn: '',
+        nameAr: '',
+        description: '',
+        descriptionEn: '',
+        descriptionAr: '',
+        price: '',
+        category: 'Main',
+        imageUrl: '',
+      })
       setNewMenuImageFile(null)
       toast.success(t('menuItemCreated'))
       fetchData()
@@ -263,13 +331,22 @@ export function AdminDashboard() {
     try {
       await api.createMenuCategory({
         name: newCategory.name,
-        displayName: newCategory.displayName || newCategory.name,
+        displayName: newCategory.displayName || newCategory.nameEn || newCategory.nameAr || newCategory.name,
+        nameEn: newCategory.nameEn,
+        nameAr: newCategory.nameAr,
         icon: newCategory.icon,
         color: newCategory.color,
         visible: true,
         sortOrder: categories.length, // append at the end
       })
-      setNewCategory({ name: '', displayName: '', icon: 'UtensilsCrossed', color: CATEGORY_COLOR_OPTIONS[0].classes })
+      setNewCategory({
+        name: '',
+        nameEn: '',
+        nameAr: '',
+        displayName: '',
+        icon: 'UtensilsCrossed',
+        color: CATEGORY_COLOR_OPTIONS[0].classes,
+      })
       toast.success(t('categoryCreated'))
       fetchData()
     } catch (error: any) {
@@ -282,6 +359,8 @@ export function AdminDashboard() {
       await api.updateMenuCategory(id, {
         name: editCategoryData.name,
         displayName: editCategoryData.displayName,
+        nameEn: editCategoryData.nameEn,
+        nameAr: editCategoryData.nameAr,
         icon: editCategoryData.icon,
         color: editCategoryData.color,
       })
@@ -721,6 +800,31 @@ export function AdminDashboard() {
                   onChange={e => setNewCategory(prev => ({ ...prev, displayName: e.target.value }))}
                   className="glass-input h-9 text-xs"
                 />
+                <p className="text-[9px] text-muted-foreground/70">{t('bilingualHint')}</p>
+              </div>
+            </div>
+
+            {/* Bilingual display names (English / Arabic) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">{t('nameEn')}</Label>
+                <Input
+                  placeholder={t('nameEnPlaceholder')}
+                  value={newCategory.nameEn}
+                  onChange={e => setNewCategory(prev => ({ ...prev, nameEn: e.target.value }))}
+                  className="glass-input h-9 text-xs"
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">{t('nameAr')}</Label>
+                <Input
+                  placeholder={t('nameArPlaceholder')}
+                  value={newCategory.nameAr}
+                  onChange={e => setNewCategory(prev => ({ ...prev, nameAr: e.target.value }))}
+                  className="glass-input h-9 text-xs"
+                  dir="rtl"
+                />
               </div>
             </div>
 
@@ -814,6 +918,29 @@ export function AdminDashboard() {
                         />
                       </div>
                     </div>
+                    {/* Bilingual display names (English / Arabic) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">{t('nameEn')}</Label>
+                        <Input
+                          placeholder={t('nameEnPlaceholder')}
+                          value={editCategoryData.nameEn}
+                          onChange={e => setEditCategoryData(prev => ({ ...prev, nameEn: e.target.value }))}
+                          className="glass-input h-9 text-xs"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">{t('nameAr')}</Label>
+                        <Input
+                          placeholder={t('nameArPlaceholder')}
+                          value={editCategoryData.nameAr}
+                          onChange={e => setEditCategoryData(prev => ({ ...prev, nameAr: e.target.value }))}
+                          className="glass-input h-9 text-xs"
+                          dir="rtl"
+                        />
+                      </div>
+                    </div>
                     {/* Icon picker */}
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">{t('categoryIcon')}</Label>
@@ -889,6 +1016,22 @@ export function AdminDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="font-semibold text-sm truncate">{category.displayName || category.name}</h4>
+                        {/* Show bilingual names side-by-side so the admin can see
+                            exactly what customers see in each locale. */}
+                        {(category.nameEn || category.nameAr) && (
+                          <div className="flex items-center gap-1">
+                            {category.nameEn && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-white/10 text-muted-foreground" dir="ltr">
+                                EN: {category.nameEn}
+                              </Badge>
+                            )}
+                            {category.nameAr && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-white/10 text-muted-foreground" dir="rtl">
+                                AR: {category.nameAr}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                         {category.displayName && category.displayName !== category.name && (
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-white/10 text-muted-foreground">
                             {category.name}
@@ -943,6 +1086,8 @@ export function AdminDashboard() {
                           setEditCategoryData({
                             name: category.name,
                             displayName: category.displayName || category.name,
+                            nameEn: category.nameEn || category.name_en || '',
+                            nameAr: category.nameAr || category.name_ar || '',
                             icon: category.icon || 'UtensilsCrossed',
                             color: category.color || CATEGORY_COLOR_OPTIONS[0].classes,
                           })
@@ -981,27 +1126,60 @@ export function AdminDashboard() {
             <Plus className="w-4 h-4 text-green-400" />
             {t('addMenuItem')}
           </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              placeholder={t('name')}
-              value={newMenuItem.name}
-              onChange={e => setNewMenuItem(prev => ({ ...prev, name: e.target.value }))}
-              className="glass-input h-10"
-            />
-            <Input
-              placeholder={t('price')}
-              type="number"
-              value={newMenuItem.price}
-              onChange={e => setNewMenuItem(prev => ({ ...prev, price: e.target.value }))}
-              className="glass-input h-10"
+          <p className="text-[11px] text-muted-foreground/80 leading-relaxed">{t('bilingualHint')}</p>
+
+          {/* Bilingual Name section */}
+          <div className="space-y-2 rounded-xl border border-white/10 p-3 bg-black/10">
+            <div className="flex items-center justify-between">
+              <Label className="text-[10px] uppercase tracking-wider text-amber-300/80">{t('englishSection')}</Label>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-amber-500/30 text-amber-300">EN</Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                placeholder={t('nameEnPlaceholder')}
+                value={newMenuItem.nameEn}
+                onChange={e => setNewMenuItem(prev => ({ ...prev, nameEn: e.target.value }))}
+                className="glass-input h-10"
+                dir="ltr"
+              />
+              <Input
+                placeholder={t('price')}
+                type="number"
+                value={newMenuItem.price}
+                onChange={e => setNewMenuItem(prev => ({ ...prev, price: e.target.value }))}
+                className="glass-input h-10"
+              />
+            </div>
+            <Textarea
+              placeholder={t('descriptionEnPlaceholder')}
+              value={newMenuItem.descriptionEn}
+              onChange={e => setNewMenuItem(prev => ({ ...prev, descriptionEn: e.target.value }))}
+              className="glass-input min-h-16 text-sm"
+              dir="ltr"
             />
           </div>
-          <Input
-            placeholder={t('description')}
-            value={newMenuItem.description}
-            onChange={e => setNewMenuItem(prev => ({ ...prev, description: e.target.value }))}
-            className="glass-input h-10"
-          />
+
+          <div className="space-y-2 rounded-xl border border-white/10 p-3 bg-black/10">
+            <div className="flex items-center justify-between">
+              <Label className="text-[10px] uppercase tracking-wider text-emerald-300/80">{t('arabicSection')}</Label>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-500/30 text-emerald-300">AR</Badge>
+            </div>
+            <Input
+              placeholder={t('nameArPlaceholder')}
+              value={newMenuItem.nameAr}
+              onChange={e => setNewMenuItem(prev => ({ ...prev, nameAr: e.target.value }))}
+              className="glass-input h-10"
+              dir="rtl"
+            />
+            <Textarea
+              placeholder={t('descriptionArPlaceholder')}
+              value={newMenuItem.descriptionAr}
+              onChange={e => setNewMenuItem(prev => ({ ...prev, descriptionAr: e.target.value }))}
+              className="glass-input min-h-16 text-sm"
+              dir="rtl"
+            />
+          </div>
+
           <div className="flex gap-3">
             <select
               value={newMenuItem.category}
@@ -1079,7 +1257,17 @@ export function AdminDashboard() {
       {/* Menu Items List */}
       <ScrollArea className="max-h-[600px]">
         <div className="space-y-3">
-          {menuItems.map(item => (
+          {menuItems.map(item => {
+            // Show the bilingual EN/AR values explicitly so the admin can
+            // see exactly what customers will see in each locale. Falls back
+            // to the legacy `name` / `description` columns if the bilingual
+            // values are empty (e.g. for items created before this migration).
+            const enName = (item.nameEn ?? item.name_en ?? '').trim() || item.name
+            const arName = (item.nameAr ?? item.name_ar ?? '').trim() || item.name
+            const enDesc = (item.descriptionEn ?? item.description_en ?? '').trim() || item.description
+            const arDesc = (item.descriptionAr ?? item.description_ar ?? '').trim() || item.description
+
+            return (
             <Card key={item.id} className={`glass-card border-0 ${!item.available ? 'opacity-50' : ''}`}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
@@ -1088,7 +1276,7 @@ export function AdminDashboard() {
                     {item.imageUrl ? (
                       <img
                         src={item.imageUrl}
-                        alt={item.name}
+                        alt={enName}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                     ) : (
@@ -1104,14 +1292,21 @@ export function AdminDashboard() {
                   </div>
 
                   {/* Item Details */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-sm truncate">{item.name}</h4>
+                      <h4 className="font-semibold text-sm truncate" dir="ltr">{enName}</h4>
                       <Badge variant="outline" className="text-[10px] shrink-0 border-purple-500/30 text-purple-400">
                         {item.category}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{item.description}</p>
+                    {/* Arabic name (only if different from English) */}
+                    {arName && arName !== enName && (
+                      <p className="text-xs text-muted-foreground truncate" dir="rtl">{arName}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate" dir="ltr">{enDesc}</p>
+                    {arDesc && arDesc !== enDesc && (
+                      <p className="text-[11px] text-muted-foreground/80 truncate" dir="rtl">{arDesc}</p>
+                    )}
                     <p className="text-sm font-bold text-green-400 mt-1">${item.price.toFixed(2)}</p>
                   </div>
 
@@ -1150,7 +1345,8 @@ export function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            )
+          })}
         </div>
       </ScrollArea>
 
