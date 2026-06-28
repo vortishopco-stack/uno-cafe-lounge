@@ -8,13 +8,12 @@ import { api } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Gamepad2, Timer, Coins, ArrowLeft, Hamburger, Coffee, CircleDot, Trophy, Crosshair, Ticket } from 'lucide-react'
+import { Gamepad2, Timer, Coins, ArrowLeft, Hamburger, Coffee, CircleDot, Crosshair, Ticket } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { BurgerCatchGame } from '@/components/games/burger-catch'
 import { CoffeeShooterGame } from '@/components/games/coffee-shooter'
 import { GrandWheelGame } from '@/components/games/grand-wheel'
-import { PredictMatchGame } from '@/components/games/predict-match'
 import { ShootTargetGame } from '@/components/games/shoot-target'
 import { LuckyScratchGame } from '@/components/games/lucky-scratch'
 
@@ -38,7 +37,6 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
     burger_catch: null,
     coffee_shooter: null,
     grand_wheel: null,
-    predict_match: null,
     shoot_target: null,
     lucky_scratch: null,
   })
@@ -64,13 +62,6 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
       description: t('grandWheelDesc'),
       color: 'from-purple-500 to-pink-500',
       emoji: '🎡',
-    },
-    predict_match: {
-      name: t('predictMatchName'),
-      icon: Trophy,
-      description: t('predictMatchDesc'),
-      color: 'from-emerald-500 to-green-600',
-      emoji: '⚽',
     },
     shoot_target: {
       name: t('shootTargetName'),
@@ -111,7 +102,6 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
     burger_catch: 50,
     coffee_shooter: 50,
     grand_wheel: 100,
-    predict_match: 60,
     shoot_target: 60,
     lucky_scratch: 40,
   }
@@ -203,12 +193,6 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
           <GrandWheelGame
             onEnd={(winnings) => handleGameEnd('grand_wheel', winnings)}
             entryCost={status?.entryCost || 100}
-          />
-        )}
-        {activeGame === 'predict_match' && (
-          <PredictMatchGame
-            onEnd={(winnings) => handleGameEnd('predict_match', winnings)}
-            entryCost={status?.entryCost || DEFAULT_ENTRY_COST.predict_match}
           />
         )}
         {activeGame === 'shoot_target' && (

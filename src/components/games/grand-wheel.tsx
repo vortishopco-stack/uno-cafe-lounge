@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CircleDot } from 'lucide-react'
+import { api, DEFAULT_GRAND_WHEEL_SEGMENTS, type GrandWheelSegment } from '@/lib/api'
 
 interface GrandWheelGameProps {
   onEnd: (winnings: number) => void
@@ -12,32 +13,43 @@ interface GrandWheelGameProps {
 const CANVAS_SIZE = 360
 const SPIN_DURATION = 5000
 
-const SEGMENTS = [
-  { label: '0', value: 0, color: '#374151' },
-  { label: '20', value: 20, color: '#7c3aed' },
-  { label: '50', value: 50, color: '#a855f7' },
-  { label: '0', value: 0, color: '#1f2937' },
-  { label: '100', value: 100, color: '#ec4899' },
-  { label: '10', value: 10, color: '#8b5cf6' },
-  { label: '0', value: 0, color: '#374151' },
-  { label: '30', value: 30, color: '#6366f1' },
-  { label: '200', value: 200, color: '#f59e0b' },
-  { label: '0', value: 0, color: '#1f2937' },
-  { label: '75', value: 75, color: '#c084fc' },
-  { label: '5', value: 5, color: '#7c3aed' },
-]
-
 export function GrandWheelGame({ onEnd, entryCost }: GrandWheelGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [gameState, setGameState] = useState<'ready' | 'spinning' | 'ended'>('ready')
+  const [gameState, setGameState] = useState<'loading' | 'ready' | 'spinning' | 'ended'>('loading')
   const [winnings, setWinnings] = useState(0)
+  // Segments are fetched from the admin-configured layout (with fallback
+  // to DEFAULT_GRAND_WHEEL_SEGMENTS). We keep BOTH a ref (for the canvas
+  // draw / spin loop closures, which mustn't go stale) and state (for the
+  // "Top prize" display on the ready screen, which must re-render).
+  const segmentsRef = useRef<GrandWheelSegment[]>(DEFAULT_GRAND_WHEEL_SEGMENTS)
+  const [segments, setSegments] = useState<GrandWheelSegment[]>(DEFAULT_GRAND_WHEEL_SEGMENTS)
   const rotationRef = useRef(0)
   const spinStartRef = useRef(0)
   const spinSpeedRef = useRef(0)
   const animFrameRef = useRef<number>(0)
   const runningRef = useRef(false)
 
+  // Fetch the admin-configured segment layout on mount. Falls back to
+  // defaults if the API call fails or no config has been saved yet.
+  useEffect(() => {
+    let cancelled = false
+    api.getGrandWheelConfig()
+      .then(loaded => {
+        if (cancelled) return
+        if (loaded && loaded.length > 0) {
+          segmentsRef.current = loaded
+          setSegments(loaded)
+        }
+        setGameState('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setGameState('ready')
+      })
+    return () => { cancelled = true }
+  }, [])
+
   const drawWheel = (ctx: CanvasRenderingContext2D, rotation: number) => {
+    const SEGMENTS = segmentsRef.current
     const cx = CANVAS_SIZE / 2
     const cy = CANVAS_SIZE / 2
     const radius = CANVAS_SIZE / 2 - 20
@@ -110,6 +122,7 @@ export function GrandWheelGame({ onEnd, entryCost }: GrandWheelGameProps) {
   }
 
   const getWinningSegment = (rotation: number) => {
+    const SEGMENTS = segmentsRef.current
     const normalized = ((2 * Math.PI) - (rotation % (2 * Math.PI))) % (2 * Math.PI)
     const segAngle = (Math.PI * 2) / SEGMENTS.length
     const index = Math.floor(normalized / segAngle) % SEGMENTS.length
@@ -154,7 +167,7 @@ export function GrandWheelGame({ onEnd, entryCost }: GrandWheelGameProps) {
     }
   }, [gameState])
 
-  // Initial draw
+  // Initial draw once segments are loaded
   useEffect(() => {
     if (canvasRef.current && gameState === 'ready') {
       const ctx = canvasRef.current.getContext('2d')
@@ -167,6 +180,19 @@ export function GrandWheelGame({ onEnd, entryCost }: GrandWheelGameProps) {
     spinSpeedRef.current = extraRotations * Math.PI * 2 + Math.random() * Math.PI * 2
     spinStartRef.current = Date.now()
     setGameState('spinning')
+  }
+
+  // Top prize is computed from the configured segments so the "ready"
+  // screen always shows the actual max reward the player can win.
+  const topPrize = segments.reduce((m, s) => Math.max(m, s.value), 0)
+
+  if (gameState === 'loading') {
+    return (
+      <div className="glass-card p-8 text-center space-y-4">
+        <div className="w-10 h-10 mx-auto border-2 border-white/20 border-t-purple-400 rounded-full animate-spin" />
+        <p className="text-sm text-muted-foreground">Loading wheel...</p>
+      </div>
+    )
   }
 
   if (gameState === 'ended') {
@@ -208,7 +234,7 @@ export function GrandWheelGame({ onEnd, entryCost }: GrandWheelGameProps) {
         <div className="text-center space-y-4">
           <div className="text-sm text-muted-foreground space-y-1">
             <p>🎡 Spin the Grand Wheel for a chance at big rewards!</p>
-            <p>💰 Top prize: 200 points!</p>
+            <p>💰 Top prize: {topPrize} points!</p>
             <p>⚠️ Monthly cooldown applies</p>
           </div>
           <div className="glass-card p-3 inline-block">

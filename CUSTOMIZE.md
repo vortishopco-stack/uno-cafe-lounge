@@ -202,14 +202,13 @@ self-redeem, which prevents fraud).
 
 ## 7. Games: Show/Hide, Costs & Cooldowns (No Code — Admin Panel)
 
-The app includes **6 mini-games**:
+The app includes **5 mini-games**:
 
 | Game                | Internal ID        | Description                                    |
 |---------------------|--------------------|------------------------------------------------|
 | 🍔 Cup Catch        | `burger_catch`     | Catch falling items in a basket                |
 | ☕ Bean Shooter     | `coffee_shooter`   | Shoot coffee beans at targets                  |
 | 🎡 Lounge Wheel     | `grand_wheel`      | Spin the wheel for instant prizes              |
-| ⚽ Predict the Match | `predict_match`    | Predict a football match result                |
 | 🥅 Shoot on Target   | `shoot_target`     | 5 penalty shots vs a diving keeper             |
 | 🎟️ Lucky Scratch    | `lucky_scratch`    | Scratch card instant win                       |
 
@@ -231,7 +230,7 @@ points a customer pays to play). Edit and save.
 Each game has a **Cooldown** field (how many hours a customer must wait
 between plays). Edit and save.
 
-> **Example:** Set "Predict the Match" to cost 60 points with a 7-hour
+> **Example:** Set "Shoot on Target" to cost 60 points with a 7-hour
 > cooldown, or make "Lucky Scratch" free with a 3-hour cooldown.
 
 ---
