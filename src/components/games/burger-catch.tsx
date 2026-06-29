@@ -21,7 +21,7 @@ interface Burger {
   x: number
   y: number
   speed: number
-  type: 'burger' | 'golden' | 'rotten'
+  type: 'heart' | 'red' | 'rotten'
 }
 
 export function BurgerCatchGame({ onEnd, onStart, entryCost }: BurgerCatchGameProps) {
@@ -123,13 +123,13 @@ export function BurgerCatchGame({ onEnd, onStart, entryCost }: BurgerCatchGamePr
       for (const burger of burgersRef.current) {
         if (burger.type === 'burger') {
           ctx.font = `${BURGER_SIZE}px Arial`
-          ctx.fillText('🍔', burger.x, burger.y + BURGER_SIZE)
+          ctx.fillText('❤️', burger.x, burger.y + BURGER_SIZE)
         } else if (burger.type === 'golden') {
           ctx.font = `${BURGER_SIZE + 5}px Arial`
           ctx.fillText('⭐', burger.x, burger.y + BURGER_SIZE)
         } else {
           ctx.font = `${BURGER_SIZE}px Arial`
-          ctx.fillText('🥬', burger.x, burger.y + BURGER_SIZE)
+          ctx.fillText('🤢', burger.x, burger.y + BURGER_SIZE)
         }
       }
 
@@ -272,13 +272,13 @@ export function BurgerCatchGame({ onEnd, onStart, entryCost }: BurgerCatchGamePr
   if (gameState === 'ready') {
     return (
       <div className="glass-card p-8 text-center space-y-6">
-        <div className="text-5xl mb-2">🍔</div>
-        <h2 className="text-2xl font-bold">Burger Catch</h2>
+        <div className="text-5xl mb-2">❤️</div>
+        <h2 className="text-2xl font-bold">Health Catch</h2>
         <div className="text-sm text-muted-foreground space-y-1">
-          <p>🎮 Use ← → arrow keys or touch to move the plate</p>
-          <p>🍔 Catch burgers = +5 pts</p>
+          <p>🎮 Use ← → arrow keys or touch to move the basket</p>
+          <p>❤️ Health icons = +5 pts</p>
           <p>⭐ Catch golden stars = +15 pts</p>
-          <p>🥬 Avoid veggies = -10 pts</p>
+          <p>🤢 Avoid sick icons = -10 pts</p>
           <p>⏱️ You have {GAME_DURATION} seconds!</p>
         </div>
         <div className="glass-card p-3 inline-block">
