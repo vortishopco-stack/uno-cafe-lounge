@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sparkles, Play } from 'lucide-react'
+import { api, DEFAULT_LUCKY_SCRATCH_PRIZES, type LuckyScratchPrize } from '@/lib/api'
 
 interface LuckyScratchGameProps {
   onEnd: (winnings: number) => void
@@ -16,51 +17,69 @@ const SCRATCH_RADIUS = 22
 const FADE_DURATION = 500
 const PERCENT_CHECK_INTERVAL = 150
 
-interface Prize {
-  emoji: string
-  label: string
-  value: number
-  weight: number
-}
-
-const PRIZES: Prize[] = [
-  { emoji: '🏆', label: 'Jackpot!', value: 300, weight: 3 },
-  { emoji: '🎉', label: 'Big Win!', value: 100, weight: 10 },
-  { emoji: '☕', label: 'Free Coffee!', value: 50, weight: 20 },
-  { emoji: '🍪', label: 'Small Treat!', value: 20, weight: 30 },
-  { emoji: '😊', label: 'Try Again', value: 0, weight: 37 },
-]
-
-function pickPrize(): Prize {
-  const total = PRIZES.reduce((s, p) => s + p.weight, 0)
+function pickPrize(prizes: LuckyScratchPrize[]): LuckyScratchPrize {
+  const total = prizes.reduce((s, p) => s + p.weight, 0)
+  if (total <= 0) return prizes[prizes.length - 1]
   let r = Math.random() * total
-  for (const p of PRIZES) {
+  for (const p of prizes) {
     r -= p.weight
     if (r <= 0) return p
   }
-  return PRIZES[PRIZES.length - 1]
+  return prizes[prizes.length - 1]
 }
 
 export function LuckyScratchGame({ onEnd, entryCost }: LuckyScratchGameProps) {
   const prizeCanvasRef = useRef<HTMLCanvasElement>(null)
   const foilCanvasRef = useRef<HTMLCanvasElement>(null)
-  const [gameState, setGameState] = useState<'ready' | 'playing' | 'ended'>('ready')
+  const [gameState, setGameState] = useState<'loading' | 'ready' | 'playing' | 'ended'>('loading')
   const [scratchPercent, setScratchPercent] = useState(0)
-  const [prize, setPrize] = useState<Prize>(PRIZES[PRIZES.length - 1])
+  const [prize, setPrize] = useState<LuckyScratchPrize>(DEFAULT_LUCKY_SCRATCH_PRIZES[DEFAULT_LUCKY_SCRATCH_PRIZES.length - 1])
   const [foilOpacity, setFoilOpacity] = useState(1)
+
+  // Prizes are fetched from the admin-configured prize table (with fallback
+  // to DEFAULT_LUCKY_SCRATCH_PRIZES). We keep BOTH a ref (for the prize-
+  // picking logic in startGame, which mustn't go stale) and state (for the
+  // "Prizes: ..." summary on the ready screen, which must re-render).
+  const prizesRef = useRef<LuckyScratchPrize[]>(DEFAULT_LUCKY_SCRATCH_PRIZES)
+  const [prizes, setPrizes] = useState<LuckyScratchPrize[]>(DEFAULT_LUCKY_SCRATCH_PRIZES)
 
   // Interaction refs (avoid stale closures in event handlers)
   const isPressedRef = useRef(false)
   const lastPosRef = useRef<{ x: number; y: number } | null>(null)
-  const prizeRef = useRef<Prize>(PRIZES[PRIZES.length - 1])
+  const prizeRef = useRef<LuckyScratchPrize>(DEFAULT_LUCKY_SCRATCH_PRIZES[DEFAULT_LUCKY_SCRATCH_PRIZES.length - 1])
   const autoRevealStartedRef = useRef(false)
   const fadeStartRef = useRef(0)
   const fadeAnimRef = useRef<number>(0)
   const percentIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Fetch the admin-configured prize table on mount. Falls back to defaults
+  // if the API call fails or no config has been saved yet.
+  useEffect(() => {
+    let cancelled = false
+    api.getLuckyScratchConfig()
+      .then(loaded => {
+        if (cancelled) return
+        if (loaded && loaded.length > 0) {
+          prizesRef.current = loaded
+          setPrizes(loaded)
+          // Initialize the displayed prize to the last one in the table
+          // (typically the "no win" entry) so the ready screen shows a
+          // neutral state.
+          const fallback = loaded[loaded.length - 1]
+          setPrize(fallback)
+          prizeRef.current = fallback
+        }
+        setGameState('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setGameState('ready')
+      })
+    return () => { cancelled = true }
+  }, [])
+
   // ---------- Drawing ----------
 
-  const drawPrize = useCallback((ctx: CanvasRenderingContext2D, p: Prize) => {
+  const drawPrize = useCallback((ctx: CanvasRenderingContext2D, p: LuckyScratchPrize) => {
     // Dark gradient background (matches other games)
     const bg = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
     bg.addColorStop(0, 'rgba(15, 12, 41, 0.95)')
@@ -335,7 +354,7 @@ export function LuckyScratchGame({ onEnd, entryCost }: LuckyScratchGameProps) {
   // ---------- Actions ----------
 
   const startGame = () => {
-    const newPrize = pickPrize()
+    const newPrize = pickPrize(prizesRef.current)
     prizeRef.current = newPrize
     setPrize(newPrize)
     setScratchPercent(0)
@@ -347,6 +366,15 @@ export function LuckyScratchGame({ onEnd, entryCost }: LuckyScratchGameProps) {
   }
 
   // ---------- Render ----------
+
+  if (gameState === 'loading') {
+    return (
+      <div className="glass-card p-8 text-center space-y-4">
+        <div className="w-10 h-10 mx-auto border-2 border-white/20 border-t-amber-400 rounded-full animate-spin" />
+        <p className="text-sm text-muted-foreground">Loading game...</p>
+      </div>
+    )
+  }
 
   if (gameState === 'ended') {
     const isWin = prize.value > 0
@@ -377,6 +405,10 @@ export function LuckyScratchGame({ onEnd, entryCost }: LuckyScratchGameProps) {
   }
 
   if (gameState === 'ready') {
+    // Build a dynamic prize summary from the configured prize table.
+    const prizeSummary = prizes
+      .map(p => `${p.emoji}${p.value}`)
+      .join(' / ')
     return (
       <div className="glass-card p-8 text-center space-y-6">
         <div className="text-5xl mb-2">🎟️</div>
@@ -386,7 +418,7 @@ export function LuckyScratchGame({ onEnd, entryCost }: LuckyScratchGameProps) {
         </h2>
         <div className="text-sm text-muted-foreground space-y-1">
           <p>Scratch the card to reveal your prize!</p>
-          <p>Prizes: 🏆300 / 🎉100 / ☕50 / 🍪20 / 😊0</p>
+          <p>Prizes: {prizeSummary}</p>
         </div>
         <div className="glass-card p-3 inline-block">
           <p className="text-sm text-yellow-400">Entry Cost: {entryCost} points</p>

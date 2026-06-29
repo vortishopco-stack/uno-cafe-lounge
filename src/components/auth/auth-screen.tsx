@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/auth-store'
 import { useT } from '@/lib/i18n'
@@ -9,20 +9,33 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { UtensilsCrossed, Phone, Mail, User, Lock, Sparkles, BookOpen } from 'lucide-react'
+import { UtensilsCrossed, Phone, Mail, User, Lock, Sparkles, BookOpen, ArrowLeft, KeyRound, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { LanguageSwitcher } from '@/components/ui/language-switcher'
 
 interface AuthScreenProps {
   onBrowseMenu?: () => void
+  /** When true, the app detected a PASSWORD_RECOVERY event and the user
+   *  clicked the reset link in their email. Show the "Set New Password"
+   *  form instead of the normal login/signup tabs. */
+  passwordRecoveryMode?: boolean
+  onRecoveryComplete?: () => void
 }
 
-export function AuthScreen({ onBrowseMenu }: AuthScreenProps) {
+export function AuthScreen({ onBrowseMenu, passwordRecoveryMode, onRecoveryComplete }: AuthScreenProps) {
   const { login } = useAuthStore()
   const { t } = useT()
   const [isLoading, setIsLoading] = useState(false)
   const [loginForm, setLoginForm] = useState({ phone: '', password: '' })
   const [signupForm, setSignupForm] = useState({ phone: '', email: '', name: '', password: '' })
+
+  // Forgot password state
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [resetInput, setResetInput] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+
+  // Set new password state (recovery flow)
+  const [newPasswordForm, setNewPasswordForm] = useState({ password: '', confirm: '' })
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,7 +48,6 @@ export function AuthScreen({ onBrowseMenu }: AuthScreenProps) {
       )
       toast.success(t('welcomeBack', { name: data.user.name }))
     } catch (error: any) {
-      // Signup-approval workflow: friendly messages for pending/rejected accounts
       const code = error?.code || error?.message
       if (code === 'ACCOUNT_PENDING') {
         toast.error(t('accountPending'), { description: t('accountPendingDesc') })
@@ -65,7 +77,6 @@ export function AuthScreen({ onBrowseMenu }: AuthScreenProps) {
       )
       toast.success(t('welcomeNew', { name: data.user.name }))
     } catch (error: any) {
-      // Signup-approval workflow: pending signup → success-style message
       const code = error?.code || error?.message
       if (code === 'SIGNUP_PENDING') {
         toast.success(t('signupReceived'), { description: t('signupReceivedDesc') })
@@ -77,6 +88,224 @@ export function AuthScreen({ onBrowseMenu }: AuthScreenProps) {
     }
   }
 
+  const handleSendResetLink = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetInput.trim()) return
+    setIsLoading(true)
+    try {
+      await api.resetPassword(resetInput.trim())
+      setResetSent(true)
+      toast.success(t('resetLinkSent'), { description: t('resetLinkSentDesc') })
+    } catch (error: any) {
+      toast.error(error.message || t('failedToSendResetLink'))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPasswordForm.password.length < 6) {
+      toast.error(t('passwordMinLength'))
+      return
+    }
+    if (newPasswordForm.password !== newPasswordForm.confirm) {
+      toast.error(t('passwordsDoNotMatch'))
+      return
+    }
+    setIsLoading(true)
+    try {
+      await api.updatePassword(newPasswordForm.password)
+      toast.success(t('passwordUpdated'))
+      // Sign out the recovery session and go back to login
+      const { supabase } = await import('@/lib/supabase')
+      await supabase.auth.signOut()
+      onRecoveryComplete?.()
+    } catch (error: any) {
+      toast.error(error.message || t('failedToUpdatePassword'))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ===== Password Recovery: Set New Password form =====
+  if (passwordRecoveryMode) {
+    return (
+      <div className="min-h-screen bg-gradient-main flex items-center justify-center p-4">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        </div>
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="text-center mb-8">
+            <div className="flex justify-end mb-2">
+              <LanguageSwitcher />
+            </div>
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 mb-4">
+              <KeyRound className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold">{t('setNewPassword')}</h1>
+            <p className="text-muted-foreground mt-2 text-sm">{t('setNewPasswordDesc')}</p>
+          </div>
+
+          <Card className="glass-card border-0 shadow-2xl">
+            <CardContent className="p-6">
+              <form onSubmit={handleSetNewPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-sm">{t('newPassword')}</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rtl:right-3 rtl:left-auto" />
+                    <Input
+                      type="password"
+                      placeholder={t('createPassword')}
+                      value={newPasswordForm.password}
+                      onChange={(e) => setNewPasswordForm(prev => ({ ...prev, password: e.target.value }))}
+                      className="glass-input pl-10 h-12 border-white/10"
+                      dir="ltr"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-sm">{t('confirmPassword')}</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rtl:right-3 rtl:left-auto" />
+                    <Input
+                      type="password"
+                      placeholder={t('confirmNewPassword')}
+                      value={newPasswordForm.confirm}
+                      onChange={(e) => setNewPasswordForm(prev => ({ ...prev, confirm: e.target.value }))}
+                      className="glass-input pl-10 h-12 border-white/10"
+                      dir="ltr"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full glass-button h-12 text-base"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      {t('updating')}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      {t('setNewPassword')}
+                    </div>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // ===== Forgot Password form =====
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen bg-gradient-main flex items-center justify-center p-4">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        </div>
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="text-center mb-8">
+            <div className="flex justify-end mb-2">
+              <LanguageSwitcher />
+            </div>
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 mb-4">
+              <KeyRound className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold">{t('forgotPasswordTitle')}</h1>
+            <p className="text-muted-foreground mt-2 text-sm">{t('forgotPasswordDesc')}</p>
+          </div>
+
+          <Card className="glass-card border-0 shadow-2xl">
+            <CardContent className="p-6">
+              {resetSent ? (
+                <div className="space-y-4 text-center">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                    <Mail className="w-8 h-8 text-green-400" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{t('resetLinkSentDesc')}</p>
+                  <Button
+                    onClick={() => {
+                      setShowForgotPassword(false)
+                      setResetSent(false)
+                      setResetInput('')
+                    }}
+                    variant="ghost"
+                    className="w-full h-11"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2 rtl-flip" />
+                    {t('backToLogin')}
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleSendResetLink} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground text-sm">{t('emailOrPhone')}</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rtl:right-3 rtl:left-auto" />
+                      <Input
+                        type="text"
+                        placeholder={t('emailOrPhonePlaceholder')}
+                        value={resetInput}
+                        onChange={(e) => setResetInput(e.target.value)}
+                        className="glass-input pl-10 h-12 border-white/10"
+                        dir="ltr"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full glass-button h-12 text-base"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        {t('sending')}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4" />
+                        {t('sendResetLink')}
+                      </div>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowForgotPassword(false)
+                      setResetInput('')
+                    }}
+                    variant="ghost"
+                    className="w-full h-10 text-sm"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2 rtl-flip" />
+                    {t('backToLogin')}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // ===== Default: Login + Signup tabs =====
   return (
     <div className="min-h-screen bg-gradient-main flex items-center justify-center p-4">
       {/* Floating background elements */}
@@ -151,6 +380,16 @@ export function AuthScreen({ onBrowseMenu }: AuthScreenProps) {
                         required
                       />
                     </div>
+                  </div>
+                  {/* Forgot Password link */}
+                  <div className="text-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                    >
+                      {t('forgotPassword')}
+                    </button>
                   </div>
                   <Button
                     type="submit"
