@@ -1553,7 +1553,7 @@ export function AdminDashboard() {
             >
               {/* Prefer admin-configured categories; fall back to the default list if none configured yet. */}
               {(categories.length > 0 ? categories.map(c => c.name) : DEFAULT_CATEGORY_NAMES).map(c => (
-                <option key={c} value={c} className="bg-gray-900">{c}</option>
+                <option key={c} value={c} className="">{c}</option>
               ))}
             </select>
           </div>
@@ -1903,9 +1903,9 @@ export function AdminDashboard() {
               onChange={e => setNewMission(prev => ({ ...prev, customerId: e.target.value }))}
               className="glass-input h-10 px-3 w-full"
             >
-              <option value="" className="bg-gray-900">{t('selectCustomer')}</option>
+              <option value="" className="">{t('selectCustomer')}</option>
               {allCustomers.map(c => (
-                <option key={c.id} value={c.id} className="bg-gray-900">{c.name} ({c.phone})</option>
+                <option key={c.id} value={c.id} className="">{c.name} ({c.phone})</option>
               ))}
             </select>
           )}
@@ -1925,10 +1925,10 @@ export function AdminDashboard() {
                 onChange={e => setNewMission(prev => ({ ...prev, type: e.target.value }))}
                 className="glass-input h-10 px-3 w-full"
               >
-                <option value="custom" className="bg-gray-900">{t('custom')}</option>
-                <option value="visit_5" className="bg-gray-900">Visit 5</option>
-                <option value="visit_10" className="bg-gray-900">Visit 10</option>
-                <option value="spend_200" className="bg-gray-900">Spend 200 JOD</option>
+                <option value="custom" className="">{t('custom')}</option>
+                <option value="visit_5" className="">Visit 5</option>
+                <option value="visit_10" className="">Visit 10</option>
+                <option value="spend_200" className="">Spend 200 JOD</option>
               </select>
             </div>
             <div className="space-y-1">
