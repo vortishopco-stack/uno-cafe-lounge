@@ -21,7 +21,7 @@ interface Burger {
   x: number
   y: number
   speed: number
-  type: 'burger' | 'golden' | 'rotten'
+  type: 'heart' | 'red' | 'rotten'
 }
 
 export function BurgerCatchGame({ onEnd, onStart, entryCost }: BurgerCatchGameProps) {
