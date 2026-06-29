@@ -66,7 +66,7 @@
   --muted-foreground: oklch(0.500 0.040 56);/* medium brown for dimmed text */
 
   /* TEXT */
-  --foreground: oklch(0.247 0.030 56);      /* #3D2817 dark brown main text */
+  --foreground: oklch(100% 0.00011 271.152);      /* #3D2817 dark brown main text */
 
   /* ACCENTS (buttons, links, focus rings) */
   --primary: oklch(0.617 0.157 56);         /* #D2691E terracotta */
