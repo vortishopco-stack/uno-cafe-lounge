@@ -83,7 +83,7 @@ SELECT id, 'visit_10', 'Visit 10 Times', 10, 3, 500
 FROM auth.users WHERE email = '123456@flavorpoints.local';
 
 INSERT INTO public.missions (customer_id, type, title, target, progress, points)
-SELECT id, 'spend_200', 'Spend $200 Total', 200, 75, 300
+SELECT id, 'spend_200', 'Spend 200 JOD Total', 200, 75, 300
 FROM auth.users WHERE email = '123456@flavorpoints.local';
 
 INSERT INTO public.missions (customer_id, type, title, target, progress, points)
@@ -95,7 +95,7 @@ SELECT id, 'visit_10', 'Visit 10 Times', 10, 5, 500
 FROM auth.users WHERE email = '654321@flavorpoints.local';
 
 INSERT INTO public.missions (customer_id, type, title, target, progress, points)
-SELECT id, 'spend_200', 'Spend $200 Total', 200, 120, 300
+SELECT id, 'spend_200', 'Spend 200 JOD Total', 200, 120, 300
 FROM auth.users WHERE email = '654321@flavorpoints.local';
 
 -- Mark visit_5 as completed for Jane

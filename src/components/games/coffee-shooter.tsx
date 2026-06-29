@@ -6,6 +6,7 @@ import { Crosshair } from 'lucide-react'
 
 interface CoffeeShooterGameProps {
   onEnd: (winnings: number) => void
+  onStart: () => Promise<boolean>
   entryCost: number
 }
 
@@ -23,7 +24,7 @@ interface CoffeeCup {
   hitTime: number
 }
 
-export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) {
+export function CoffeeShooterGame({ onEnd, onStart, entryCost }: CoffeeShooterGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'ended'>('ready')
   const [score, setScore] = useState(0)
@@ -251,7 +252,13 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
     }
   }
 
-  const startGame = () => {
+  const [isStarting, setIsStarting] = useState(false)
+
+  const startGame = async () => {
+    setIsStarting(true)
+    const ok = await onStart()
+    setIsStarting(false)
+    if (!ok) return
     scoreRef.current = 0
     setScore(0)
     setTimeLeft(GAME_DURATION)
@@ -271,6 +278,15 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
     return 0
   }
 
+  // Auto-call onEnd when the game ends — no "Collect Winnings" button needed.
+  useEffect(() => {
+    if (gameState === 'ended') {
+      const winnings = calculateWinnings()
+      const timer = setTimeout(() => onEnd(winnings), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [gameState])
+
   if (gameState === 'ended') {
     const winnings = calculateWinnings()
     return (
@@ -287,9 +303,8 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
           </p>
           <p className="text-sm text-muted-foreground">Entry cost: -{entryCost} points</p>
         </div>
-        <Button onClick={() => onEnd(winnings)} className="glass-button px-8">
-          Collect Winnings
-        </Button>
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">Collecting...</p>
       </div>
     )
   }
@@ -311,9 +326,18 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
           <p className="text-sm text-yellow-400">Entry Cost: {entryCost} points</p>
         </div>
         <div>
-          <Button onClick={startGame} className="glass-button px-8 text-lg h-12">
-            <Crosshair className="w-5 h-5 mr-2" />
-            Start Game
+          <Button onClick={startGame} disabled={isStarting} className="glass-button px-8 text-lg h-12">
+            {isStarting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Starting...
+              </div>
+            ) : (
+              <>
+                <Crosshair className="w-5 h-5 mr-2" />
+                Start Game
+              </>
+            )}
           </Button>
         </div>
       </div>
