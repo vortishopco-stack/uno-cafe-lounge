@@ -10,65 +10,170 @@
 --     in the Supabase SQL Editor. It first clears the old demo
 --     menu/rewards, then inserts the Uno Cafe items.
 --     (Safe to re-run — uses ON CONFLICT DO NOTHING.)
+--
+-- Bilingual columns (name_en/name_ar/description_en/description_ar)
+-- are populated for every menu item and reward so the customer-facing
+-- menu renders fully in either Arabic or English.
 -- =============================================
 
 -- ---------- OPTION B: clean old demo data first ----------
 -- (Comment these two DELETE lines out if you want to KEEP existing items)
 DELETE FROM public.menu_items WHERE category IN ('Burgers','Coffee','Salads','Sides','Desserts');
 DELETE FROM public.rewards WHERE name IN (
-  'Free Espresso','Free Cappuccino','Free French Fries','$5 Off Your Order',
+  'Free Espresso','Free Cappuccino','Free French Fries','5 JOD Off Your Order',
   'Free Caesar Salad','Free Classic Burger','Free Dessert','Buy 1 Get 1 Coffee',
-  '$10 Off Your Order','VIP Experience'
+  '10 JOD Off Your Order','VIP Experience'
 );
+
+-- =============================================
+-- MENU CATEGORIES (Uno Cafe' Lounge)
+-- =============================================
+INSERT INTO public.menu_categories (name, display_name, name_en, name_ar, icon, color, sort_order, visible) VALUES
+  ('Main',     'Main',     'Main',     'رئيسي',     'UtensilsCrossed', 'from-amber-500/20 to-orange-500/20',  0, true),
+  ('Burgers',  'Burgers',  'Burgers',  'برغر',      'Beef',            'from-amber-500/20 to-orange-500/20',  1, true),
+  ('Coffee',   'Coffee',   'Coffee',   'قهوة',      'Coffee',          'from-amber-700/20 to-yellow-600/20', 2, true),
+  ('Salads',   'Salads',   'Salads',   'سلطات',     'Salad',           'from-green-500/20 to-emerald-500/20', 3, true),
+  ('Sides',    'Sides',    'Sides',    'إضافات',    'Flame',           'from-orange-500/20 to-red-500/20',    4, true),
+  ('Desserts', 'Desserts', 'Desserts', 'حلويات',    'Cake',            'from-pink-500/20 to-rose-500/20',     5, true)
+ON CONFLICT (name) DO UPDATE SET
+  name_en = EXCLUDED.name_en,
+  name_ar = EXCLUDED.name_ar;
 
 -- =============================================
 -- MENU ITEMS (Uno Cafe' Lounge)
 -- =============================================
-INSERT INTO public.menu_items (name, description, price, category) VALUES
+INSERT INTO public.menu_items
+  (name, description, name_en, name_ar, description_en, description_ar, price, category) VALUES
+  -- Burgers
+  ('Classic Burger', 'Juicy beef patty with lettuce, tomato, and special sauce',
+   'Classic Burger', 'برغر كلاسيكي',
+   'Juicy beef patty with lettuce, tomato, and special sauce',
+   'قطعة لحم بقري شهية مع الخس والطماطم والصوص الخاص',
+   12.99, 'Burgers'),
+  ('Cheese Burger', 'Classic burger with melted cheddar cheese',
+   'Cheese Burger', 'برغر بالجبن',
+   'Classic burger with melted cheddar cheese',
+   'برغر كلاسيكي مع جبن الشيدر الذائب',
+   14.99, 'Burgers'),
+  ('Bacon Burger', 'Classic burger with crispy bacon strips',
+   'Bacon Burger', 'برغر باللحم المقدد',
+   'Classic burger with crispy bacon strips',
+   'برغر كلاسيكي مع شرائح اللحم المقدد المقرمشة',
+   16.99, 'Burgers'),
+  ('Veggie Burger', 'Plant-based patty with fresh vegetables',
+   'Veggie Burger', 'برغر نباتي',
+   'Plant-based patty with fresh vegetables',
+   'قطعة نباتية مع خضار طازجة',
+   13.99, 'Burgers'),
   -- Coffee
-  ('Espresso',            'Rich and bold single shot of premium espresso',              3.50, 'Coffee'),
-  ('Americano',           'Espresso diluted with hot water for a smooth cup',           4.00, 'Coffee'),
-  ('Cappuccino',          'Espresso with steamed milk and velvety foam',                4.75, 'Coffee'),
-  ('Latte',               'Espresso with creamy steamed milk and a light foam top',     5.25, 'Coffee'),
-  ('Flat White',          'Double ristretto with silky microfoam',                      5.50, 'Coffee'),
-  ('Mocha',               'Espresso with Belgian chocolate and steamed milk',           5.75, 'Coffee'),
-  ('Turkish Coffee',      'Traditional finely ground coffee brewed in a cezve',         4.50, 'Coffee'),
-  ('Cold Brew',           'Slow-steeped 18 hours for a smooth, low-acidity cold coffee',5.50, 'Coffee'),
-  ('Iced Latte',          'Chilled espresso with cold milk over ice',                   5.75, 'Coffee'),
-  ('Caramel Macchiato',   'Vanilla, steamed milk, espresso and a caramel drizzle',      6.25, 'Coffee'),
-  -- Pastries
-  ('Butter Croissant',    'Flaky, buttery French-style croissant',                      3.25, 'Pastries'),
-  ('Pain au Chocolat',    'Croissant pastry with rich dark chocolate',                  3.75, 'Pastries'),
-  ('Blueberry Muffin',    'Soft muffin loaded with fresh blueberries',                  3.50, 'Pastries'),
-  ('Cinnamon Roll',       'Warm roll swirled with cinnamon and cream cheese glaze',     4.25, 'Pastries'),
-  ('Banana Bread',        'Moist banana bread slice, lightly toasted',                  3.50, 'Pastries'),
-  -- Light Bites
-  ('Avocado Toast',       'Smashed avocado on sourdough with chili flakes and lime',    8.50, 'Light Bites'),
-  ('Club Sandwich',       'Triple-decker turkey, bacon, lettuce and tomato',            9.75, 'Light Bites'),
-  ('Caesar Salad',        'Romaine, croutons, parmesan and classic caesar dressing',    8.25, 'Light Bites'),
-  ('Tomato Basil Soup',   'Creamy roasted tomato soup with fresh basil',                6.50, 'Light Bites'),
-  ('Margherita Flatbread','Flatbread with tomato, mozzarella and fresh basil',          9.50, 'Light Bites'),
+  ('Espresso', 'Rich and bold single shot espresso',
+   'Espresso', 'إسبريسو',
+   'Rich and bold single shot espresso',
+   'جرعة إسبريسو غنية وقوية',
+   4.99, 'Coffee'),
+  ('Cappuccino', 'Espresso with steamed milk foam',
+   'Cappuccino', 'كابتشينو',
+   'Espresso with steamed milk foam',
+   'إسبريسو مع رغوة الحليب المبخّر',
+   5.99, 'Coffee'),
+  ('Latte', 'Espresso with steamed milk',
+   'Latte', 'لاتيه',
+   'Espresso with steamed milk',
+   'إسبريسو مع الحليب المبخّر',
+   6.49, 'Coffee'),
+  ('Mocha', 'Espresso with chocolate and steamed milk',
+   'Mocha', 'موكا',
+   'Espresso with chocolate and steamed milk',
+   'إسبريسو مع الشوكولاتة والحليب المبخّر',
+   6.99, 'Coffee'),
+  -- Salads
+  ('Caesar Salad', 'Fresh romaine with caesar dressing and croutons',
+   'Caesar Salad', 'سلطة سيزر',
+   'Fresh romaine with caesar dressing and croutons',
+   'خس روماني طازج مع صوص سيزر والخبز المحمّص',
+   10.99, 'Salads'),
+  ('Greek Salad', 'Mixed greens with feta and olives',
+   'Greek Salad', 'سلطة يونانية',
+   'Mixed greens with feta and olives',
+   'خضار ورقية مشكّلة مع جبن الفيتا والزيتون',
+   9.99, 'Salads'),
+  -- Sides
+  ('French Fries', 'Crispy golden fries with sea salt',
+   'French Fries', 'بطاطس مقلية',
+   'Crispy golden fries with sea salt',
+   'بطاطس ذهبية مقرمشة مع ملح البحر',
+   5.99, 'Sides'),
+  ('Onion Rings', 'Beer-battered onion rings',
+   'Onion Rings', 'حلقات البصل',
+   'Beer-battered onion rings',
+   'حلقات البصل المقلية بعجينة البيرة',
+   6.99, 'Sides'),
   -- Desserts
-  ('Tiramisu',            'Coffee-soaked ladyfingers layered with mascarpone',          5.50, 'Desserts'),
-  ('New York Cheesecake', 'Classic dense and creamy cheesecake with berry coulis',      5.25, 'Desserts'),
-  ('Chocolate Lava Cake', 'Warm cake with a molten chocolate center',                   5.75, 'Desserts'),
-  ('Baklava',             'Layered filo with nuts and honey syrup',                     4.75, 'Desserts')
+  ('Chocolate Cake', 'Rich chocolate layer cake',
+   'Chocolate Cake', 'كيك الشوكولاتة',
+   'Rich chocolate layer cake',
+   'كيك طبقات الشوكولاتة الغنية',
+   8.99, 'Desserts'),
+  ('Cheesecake', 'New York style cheesecake',
+   'Cheesecake', 'تشيز كيك',
+   'New York style cheesecake',
+   'تشيز كيك على الطريقة النيويوركية',
+   7.99, 'Desserts')
 ON CONFLICT DO NOTHING;
 
 -- =============================================
 -- REWARDS (Uno Cafe' Lounge)
 -- =============================================
-INSERT INTO public.rewards (name, description, points_cost) VALUES
-  ('Free Espresso',           'Enjoy a free single espresso on us!',                      100),
-  ('Free Cappuccino',         'A complimentary cappuccino, made just for you',            150),
-  ('Free Butter Croissant',   'Fresh flaky croissant for free',                           120),
-  ('Buy 1 Get 1 Coffee',      'Get two coffees for the price of one',                     180),
-  ('Free Cold Brew',          'Smooth 18-hour cold brew on the house',                    220),
-  ('Free Avocado Toast',      'Our signature avocado toast for free',                     300),
-  ('Free Dessert',            'Choose any dessert from our menu',                         300),
-  ('$5 Off Your Order',       'Get $5 discount on any order',                             250),
-  ('Free Caramel Macchiato',  'Our premium caramel macchiato, complimentary',             350),
-  ('$10 Off Your Order',      'Get $10 discount on any order',                            500),
-  ('Lounge VIP Seating',      'Priority seating in our VIP lounge + free appetizer',      750),
-  ('Free Brunch for Two',     'Complimentary brunch for two at Uno Cafe Lounge',         1500)
+INSERT INTO public.rewards
+  (name, description, name_en, name_ar, description_en, description_ar, points_cost) VALUES
+  ('Free Espresso',           'Enjoy a free espresso on us!',
+   'Free Espresso',           'إسبريسو مجاني',
+   'Enjoy a free espresso on us!',
+   'استمتع بإسبريسو مجاني منّا!',
+   100),
+  ('Free Cappuccino',         'A complimentary cappuccino',
+   'Free Cappuccino',         'كابتشينو مجاني',
+   'A complimentary cappuccino',
+   'كابتشينو مجاني على حسابنا',
+   150),
+  ('Free French Fries',       'Crispy fries for free',
+   'Free French Fries',       'بطاطس مقلية مجانية',
+   'Crispy fries for free',
+   'بطاطس مقلية مقرمشة مجاناً',
+   200),
+  ('5 JOD Off Your Order',    'Get 5 JOD discount on any order',
+   '5 JOD Off Your Order',    'خصم 5 د.أ على طلبك',
+   'Get 5 JOD discount on any order',
+   'احصل على خصم 5 د.أ على أي طلب',
+   250),
+  ('Free Caesar Salad',       'Fresh caesar salad on the house',
+   'Free Caesar Salad',       'سلطة سيزر مجانية',
+   'Fresh caesar salad on the house',
+   'سلطة سيزر طازجة على حسابنا',
+   350),
+  ('Free Classic Burger',     'Our signature burger for free',
+   'Free Classic Burger',     'برغر كلاسيكي مجاني',
+   'Our signature burger for free',
+   'برغرنا المميز مجاناً',
+   500),
+  ('Free Dessert',            'Choose any dessert from our menu',
+   'Free Dessert',            'حلى مجاني',
+   'Choose any dessert from our menu',
+   'اختر أي حلى من قائمتنا',
+   300),
+  ('Buy 1 Get 1 Coffee',      'Get two coffees for the price of one',
+   'Buy 1 Get 1 Coffee',      'اشترِ واحدًا واحصل على قهوة مجانية',
+   'Get two coffees for the price of one',
+   'احصل على قهوتين بسعر قهوة واحدة',
+   180),
+  ('10 JOD Off Your Order',   'Get 10 JOD discount on any order',
+   '10 JOD Off Your Order',   'خصم 10 د.أ على طلبك',
+   'Get 10 JOD discount on any order',
+   'احصل على خصم 10 د.أ على أي طلب',
+   500),
+  ('VIP Experience',          'Priority seating + free appetizer',
+   'VIP Experience',          'تجربة VIP',
+   'Priority seating + free appetizer',
+   'مقعد أولوية + مقبلات مجانية',
+   1000)
 ON CONFLICT DO NOTHING;

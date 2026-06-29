@@ -7,7 +7,6 @@ export type GameType =
   | 'burger_catch'
   | 'coffee_shooter'
   | 'grand_wheel'
-  | 'predict_match'
   | 'shoot_target'
   | 'lucky_scratch'
 

@@ -112,7 +112,7 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
           ctx.fillText('💥', cup.x - cup.size / 2, cup.y + cup.size / 4)
           ctx.globalAlpha = 1
         } else {
-          const emoji = cup.type === 'coffee' ? '☕' : cup.type === 'latte' ? '🥛' : '🍵'
+          const emoji = cup.type === 'coffee' ? '💊' : cup.type === 'latte' ? '💉' : '🧪'
           ctx.font = `${cup.size}px Arial`
           ctx.fillText(emoji, cup.x - cup.size / 2, cup.y + cup.size / 4)
         }
@@ -271,6 +271,15 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
     return 0
   }
 
+  // Auto-call onEnd when the game ends — no "Collect Winnings" button needed.
+  useEffect(() => {
+    if (gameState === 'ended') {
+      const winnings = calculateWinnings()
+      const timer = setTimeout(() => onEnd(winnings), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [gameState])
+
   if (gameState === 'ended') {
     const winnings = calculateWinnings()
     return (
@@ -287,9 +296,8 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
           </p>
           <p className="text-sm text-muted-foreground">Entry cost: -{entryCost} points</p>
         </div>
-        <Button onClick={() => onEnd(winnings)} className="glass-button px-8">
-          Collect Winnings
-        </Button>
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">Collecting...</p>
       </div>
     )
   }
@@ -297,13 +305,13 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
   if (gameState === 'ready') {
     return (
       <div className="glass-card p-8 text-center space-y-6">
-        <div className="text-5xl mb-2">☕</div>
-        <h2 className="text-2xl font-bold">Coffee Shooter</h2>
+        <div className="text-5xl mb-2">💊</div>
+        <h2 className="text-2xl font-bold">Vitamin Shooter</h2>
         <div className="text-sm text-muted-foreground space-y-1">
-          <p>🎯 Click/Tap the falling cups to score</p>
-          <p>☕ Regular = +5 pts</p>
-          <p>🥛 Latte = +10 pts</p>
-          <p>🍵 Special = +15 pts</p>
+          <p>🎯 Click/Tap the falling items to score</p>
+          <p>💊 Vitamin = +5 pts</p>
+          <p>💉 Shot = +10 pts</p>
+          <p>🧪 Special = +15 pts</p>
           <p>❌ Miss = -2 pts</p>
           <p>⏱️ You have {GAME_DURATION} seconds!</p>
         </div>

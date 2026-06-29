@@ -493,6 +493,15 @@ export function ShootTargetGame({ onEnd, entryCost }: ShootTargetGameProps) {
     return 0
   }
 
+  // Auto-call onEnd when the game ends — no "Collect Winnings" button needed.
+  useEffect(() => {
+    if (gameState === 'ended') {
+      const winnings = calculateWinnings()
+      const timer = setTimeout(() => onEnd(winnings), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [gameState])
+
   if (gameState === 'ended') {
     const winnings = calculateWinnings()
     const accuracy = Math.round((goals / TOTAL_SHOTS) * 100)
@@ -524,9 +533,8 @@ export function ShootTargetGame({ onEnd, entryCost }: ShootTargetGameProps) {
             </span>
           </p>
         </div>
-        <Button onClick={() => onEnd(winnings)} className="glass-button px-8">
-          Collect Winnings
-        </Button>
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">Collecting...</p>
       </div>
     )
   }

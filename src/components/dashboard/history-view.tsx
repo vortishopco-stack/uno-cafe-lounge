@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useT } from '@/lib/i18n'
+import { formatCurrency } from '@/lib/currency'
 import { api } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -98,7 +99,7 @@ export function HistoryView() {
                       <ArrowUpCircle className="w-3.5 h-3.5 text-green-400" />
                       <span className="text-sm font-bold text-green-400">+{visit.pointsEarned}</span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">${visit.invoiceAmount.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatCurrency(visit.invoiceAmount, locale)}</p>
                   </div>
                 </CardContent>
               </Card>

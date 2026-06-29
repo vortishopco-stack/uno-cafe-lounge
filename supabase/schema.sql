@@ -32,10 +32,18 @@ CREATE TABLE IF NOT EXISTS public.visits (
 );
 
 -- Menu Items
+-- Bilingual columns (name_en/name_ar/description_en/description_ar) are the
+-- source of truth for customer-facing display. The legacy `name` / `description`
+-- columns are kept for backward compatibility and are mirrored from the *_en
+-- values by the application layer.
 CREATE TABLE IF NOT EXISTS public.menu_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
+  name_en TEXT DEFAULT '',
+  name_ar TEXT DEFAULT '',
+  description_en TEXT DEFAULT '',
+  description_ar TEXT DEFAULT '',
   price FLOAT NOT NULL,
   category TEXT DEFAULT 'Main',
   image_url TEXT DEFAULT '',
@@ -46,11 +54,16 @@ CREATE TABLE IF NOT EXISTS public.menu_items (
 
 -- Menu Categories (admin-managed category metadata: name, icon, color, sort order, visibility)
 -- Each row's `name` matches the `category` text stored on menu_items.
--- `display_name` is what customers see in the menu (can differ from internal name).
+-- `display_name` is the legacy customer-facing label (kept for backward compat).
+-- `name_en` / `name_ar` are the bilingual customer-facing labels used by the
+-- new i18n-aware customer view; if either is empty the app falls back to the
+-- other language, then to `display_name`, then to `name`.
 CREATE TABLE IF NOT EXISTS public.menu_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
+  name_en TEXT DEFAULT '',
+  name_ar TEXT DEFAULT '',
   icon TEXT DEFAULT 'UtensilsCrossed',
   color TEXT DEFAULT 'from-amber-500/20 to-orange-500/20',
   sort_order INTEGER DEFAULT 0,
@@ -64,6 +77,10 @@ CREATE TABLE IF NOT EXISTS public.rewards (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
+  name_en TEXT DEFAULT '',
+  name_ar TEXT DEFAULT '',
+  description_en TEXT DEFAULT '',
+  description_ar TEXT DEFAULT '',
   points_cost INTEGER NOT NULL,
   image_url TEXT DEFAULT '',
   available BOOLEAN DEFAULT true,
@@ -78,7 +95,9 @@ CREATE TABLE IF NOT EXISTS public.game_history (
   game_type TEXT NOT NULL,
   entry_cost INTEGER NOT NULL,
   winnings INTEGER NOT NULL DEFAULT 0,
-  played_at TIMESTAMPTZ DEFAULT NOW()
+  status TEXT DEFAULT 'finished' CHECK (status IN ('started', 'finished')),
+  played_at TIMESTAMPTZ DEFAULT NOW(),
+  finished_at TIMESTAMPTZ
 );
 
 -- App Settings
@@ -121,6 +140,7 @@ CREATE TABLE IF NOT EXISTS public.daily_sign_ins (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(customer_id, sign_in_date)
 );
+
 
 -- =============================================
 -- 2. INDEXES
@@ -497,7 +517,6 @@ BEGIN
       WHEN 'burger_catch' THEN v_entry_cost := 50;
       WHEN 'coffee_shooter' THEN v_entry_cost := 50;
       WHEN 'grand_wheel' THEN v_entry_cost := 100;
-      WHEN 'predict_match' THEN v_entry_cost := 60;
       WHEN 'shoot_target' THEN v_entry_cost := 60;
       WHEN 'lucky_scratch' THEN v_entry_cost := 40;
       ELSE v_entry_cost := 50;
@@ -520,7 +539,6 @@ BEGIN
       WHEN 'burger_catch' THEN v_cooldown_days := 7;
       WHEN 'coffee_shooter' THEN v_cooldown_days := 7;
       WHEN 'grand_wheel' THEN v_cooldown_days := 30;
-      WHEN 'predict_match' THEN v_cooldown_days := 7;
       WHEN 'shoot_target' THEN v_cooldown_days := 7;
       WHEN 'lucky_scratch' THEN v_cooldown_days := 3;
       ELSE v_cooldown_days := 7;
@@ -637,6 +655,166 @@ BEGIN
 END;
 $$;
 
+-- START GAME: Deduct entry cost immediately when the user clicks "Start Game".
+-- Checks cooldown + sufficient points, deducts entry cost, records a
+-- game_history row with status='started' and winnings=0. Returns the
+-- game_id (needed by finish_game) and the new points balance.
+CREATE OR REPLACE FUNCTION public.start_game(
+  p_customer_id UUID,
+  p_game_type TEXT
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_entry_cost INT;
+  v_cooldown_days INT;
+  v_last_play TIMESTAMPTZ;
+  v_cooldown_ms BIGINT;
+  v_time_since BIGINT;
+  v_remaining_hours INT;
+  v_new_points INT;
+  v_game_id UUID;
+BEGIN
+  -- Get game cost from settings
+  SELECT (value)::INT INTO v_entry_cost
+  FROM public.app_settings WHERE key = 'game_cost_' || p_game_type;
+  IF v_entry_cost IS NULL THEN
+    CASE p_game_type
+      WHEN 'burger_catch' THEN v_entry_cost := 50;
+      WHEN 'coffee_shooter' THEN v_entry_cost := 50;
+      WHEN 'grand_wheel' THEN v_entry_cost := 100;
+      WHEN 'shoot_target' THEN v_entry_cost := 60;
+      WHEN 'lucky_scratch' THEN v_entry_cost := 40;
+      ELSE v_entry_cost := 50;
+    END CASE;
+  END IF;
+
+  -- Block hidden (disabled) games
+  IF EXISTS (
+    SELECT 1 FROM public.app_settings
+    WHERE key = 'game_enabled_' || p_game_type AND value = 'false'
+  ) THEN
+    RETURN json_build_object('error', 'This game is currently unavailable');
+  END IF;
+
+  -- Get cooldown from settings
+  SELECT (value)::INT INTO v_cooldown_days
+  FROM public.app_settings WHERE key = 'game_cooldown_' || p_game_type;
+  IF v_cooldown_days IS NULL THEN
+    CASE p_game_type
+      WHEN 'burger_catch' THEN v_cooldown_days := 7;
+      WHEN 'coffee_shooter' THEN v_cooldown_days := 7;
+      WHEN 'grand_wheel' THEN v_cooldown_days := 30;
+      WHEN 'shoot_target' THEN v_cooldown_days := 7;
+      WHEN 'lucky_scratch' THEN v_cooldown_days := 3;
+      ELSE v_cooldown_days := 7;
+    END CASE;
+  END IF;
+
+  -- Check cooldown (only consider 'finished' games for cooldown —
+  -- an abandoned 'started' game shouldn't trigger cooldown)
+  SELECT played_at INTO v_last_play
+  FROM public.game_history
+  WHERE customer_id = p_customer_id AND game_type = p_game_type AND status = 'finished'
+  ORDER BY played_at DESC LIMIT 1;
+
+  IF v_last_play IS NOT NULL THEN
+    v_cooldown_ms := v_cooldown_days * 24 * 60 * 60 * 1000;
+    v_time_since := EXTRACT(EPOCH FROM (NOW() - v_last_play)) * 1000;
+    IF v_time_since < v_cooldown_ms THEN
+      v_remaining_hours := CEIL((v_cooldown_ms - v_time_since) / 3600000.0);
+      RETURN json_build_object(
+        'error', 'Cooldown active. Try again in ' || v_remaining_hours || ' hours',
+        'cooldown_remaining', v_cooldown_ms - v_time_since
+      );
+    END IF;
+  END IF;
+
+  -- Check sufficient points
+  IF NOT EXISTS (SELECT 1 FROM public.customers WHERE id = p_customer_id AND points >= v_entry_cost) THEN
+    RETURN json_build_object('error', 'Insufficient points');
+  END IF;
+
+  -- Deduct entry cost
+  UPDATE public.customers
+  SET points = points - v_entry_cost, updated_at = NOW()
+  WHERE id = p_customer_id;
+
+  -- Record game with status='started' (winnings not yet known)
+  INSERT INTO public.game_history (id, customer_id, game_type, entry_cost, winnings, status)
+  VALUES (gen_random_uuid(), p_customer_id, p_game_type, v_entry_cost, 0, 'started')
+  RETURNING id INTO v_game_id;
+
+  -- Get new balance
+  SELECT points INTO v_new_points FROM public.customers WHERE id = p_customer_id;
+
+  RETURN json_build_object(
+    'game_id', v_game_id,
+    'entry_cost', v_entry_cost,
+    'new_points_balance', v_new_points
+  );
+END;
+$$;
+
+-- FINISH GAME: Add winnings when the game ends. Called automatically
+-- (no button click needed). Looks up the 'started' game by id, adds
+-- winnings, marks it as 'finished'. Idempotent — calling twice is safe
+-- (second call returns "already finished" without double-adding).
+CREATE OR REPLACE FUNCTION public.finish_game(
+  p_game_id UUID,
+  p_winnings INT
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_game RECORD;
+  v_new_points INT;
+BEGIN
+  SELECT * INTO v_game FROM public.game_history WHERE id = p_game_id;
+  IF v_game.id IS NULL THEN
+    RETURN json_build_object('error', 'Game not found');
+  END IF;
+
+  -- Idempotent: if already finished, just return current balance
+  IF v_game.status = 'finished' THEN
+    SELECT points INTO v_new_points FROM public.customers WHERE id = v_game.customer_id;
+    RETURN json_build_object(
+      'success', TRUE,
+      'already_finished', TRUE,
+      'points_awarded', 0,
+      'new_points_balance', v_new_points
+    );
+  END IF;
+
+  -- Add winnings
+  IF p_winnings > 0 THEN
+    UPDATE public.customers
+    SET points = points + p_winnings, updated_at = NOW()
+    WHERE id = v_game.customer_id;
+  END IF;
+
+  -- Mark game as finished
+  UPDATE public.game_history
+  SET winnings = p_winnings,
+      status = 'finished',
+      finished_at = NOW()
+  WHERE id = p_game_id;
+
+  SELECT points INTO v_new_points FROM public.customers WHERE id = v_game.customer_id;
+
+  RETURN json_build_object(
+    'success', TRUE,
+    'already_finished', FALSE,
+    'points_awarded', p_winnings,
+    'new_points_balance', v_new_points
+  );
+END;
+$$;
+
 -- CLAIM DAILY SIGN-IN: Award daily sign-in points
 CREATE OR REPLACE FUNCTION public.claim_daily_sign_in(
   p_customer_id UUID
@@ -740,6 +918,22 @@ BEGIN
 END;
 $$;
 
+
+-- GET AUTH EMAIL BY PHONE: Safely look up a customer's auth email by
+-- phone number. SECURITY DEFINER bypasses RLS so unauthenticated users
+-- can resolve their email before login. Only returns the email field —
+-- no other profile data is exposed.
+CREATE OR REPLACE FUNCTION public.get_auth_email_by_phone(p_phone TEXT)
+RETURNS TEXT
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT email FROM public.customers WHERE phone = p_phone LIMIT 1;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_auth_email_by_phone(TEXT) TO anon, authenticated;
+
 -- =============================================
 -- 6. SEED DATA
 -- =============================================
@@ -750,53 +944,113 @@ INSERT INTO public.app_settings (key, value) VALUES
   ('game_cost_burger_catch', '50'),
   ('game_cost_coffee_shooter', '50'),
   ('game_cost_grand_wheel', '100'),
-  ('game_cost_predict_match', '60'),
   ('game_cost_shoot_target', '60'),
   ('game_cost_lucky_scratch', '40'),
   ('game_cooldown_burger_catch', '7'),
   ('game_cooldown_coffee_shooter', '7'),
   ('game_cooldown_grand_wheel', '30'),
-  ('game_cooldown_predict_match', '7'),
   ('game_cooldown_shoot_target', '7'),
   ('game_cooldown_lucky_scratch', '3'),
   ('game_enabled_burger_catch', 'true'),
   ('game_enabled_coffee_shooter', 'true'),
   ('game_enabled_grand_wheel', 'true'),
-  ('game_enabled_predict_match', 'true'),
   ('game_enabled_shoot_target', 'true'),
   ('game_enabled_lucky_scratch', 'true'),
   ('mission_target_visit_5', '5'),
   ('mission_target_visit_10', '10'),
   ('mission_target_spend_200', '200'),
-  ('daily_sign_in_points', '5')
+  ('daily_sign_in_points', '5'),
+  -- Game prize configuration (admin-editable JSON).
+  -- These mirror the hardcoded defaults in src/lib/api.ts so the admin
+  -- sees pre-populated values when they first open the Game Prize
+  -- Configuration card. The games fetch these on mount and fall back
+  -- to the same defaults if the rows are missing.
+  ('game_config_grand_wheel', '[{"label":"0","value":0,"color":"#374151"},{"label":"20","value":20,"color":"#7c3aed"},{"label":"50","value":50,"color":"#a855f7"},{"label":"0","value":0,"color":"#1f2937"},{"label":"100","value":100,"color":"#ec4899"},{"label":"10","value":10,"color":"#8b5cf6"},{"label":"0","value":0,"color":"#374151"},{"label":"30","value":30,"color":"#6366f1"},{"label":"200","value":200,"color":"#f59e0b"},{"label":"0","value":0,"color":"#1f2937"},{"label":"75","value":75,"color":"#c084fc"},{"label":"5","value":5,"color":"#7c3aed"}]'),
+  ('game_config_lucky_scratch', '[{"emoji":"🏆","label":"Jackpot!","value":300,"weight":3},{"emoji":"🎉","label":"Big Win!","value":100,"weight":10},{"emoji":"☕","label":"Free Coffee!","value":50,"weight":20},{"emoji":"🍪","label":"Small Treat!","value":20,"weight":30},{"emoji":"😊","label":"Try Again","value":0,"weight":37}]')
 ON CONFLICT (key) DO NOTHING;
 
 -- Menu Categories (admin-managed; customer MenuView reads these to render the filter bar + icons)
-INSERT INTO public.menu_categories (name, display_name, icon, color, sort_order, visible) VALUES
-  ('Main',     'Main',     'UtensilsCrossed', 'from-amber-500/20 to-orange-500/20',  0, true),
-  ('Burgers',  'Burgers',  'Beef',            'from-amber-500/20 to-orange-500/20',  1, true),
-  ('Coffee',   'Coffee',   'Coffee',          'from-amber-700/20 to-yellow-600/20', 2, true),
-  ('Salads',   'Salads',   'Salad',           'from-green-500/20 to-emerald-500/20', 3, true),
-  ('Sides',    'Sides',    'Flame',           'from-orange-500/20 to-red-500/20',    4, true),
-  ('Desserts', 'Desserts', 'Cake',            'from-pink-500/20 to-rose-500/20',     5, true)
+INSERT INTO public.menu_categories (name, display_name, name_en, name_ar, icon, color, sort_order, visible) VALUES
+  ('Main',     'Main',     'Main',     'رئيسي',     'UtensilsCrossed', 'from-amber-500/20 to-orange-500/20',  0, true),
+  ('Burgers',  'Burgers',  'Burgers',  'برغر',      'Beef',            'from-amber-500/20 to-orange-500/20',  1, true),
+  ('Coffee',   'Coffee',   'Coffee',   'قهوة',      'Coffee',          'from-amber-700/20 to-yellow-600/20', 2, true),
+  ('Salads',   'Salads',   'Salads',   'سلطات',     'Salad',           'from-green-500/20 to-emerald-500/20', 3, true),
+  ('Sides',    'Sides',    'Sides',    'إضافات',    'Flame',           'from-orange-500/20 to-red-500/20',    4, true),
+  ('Desserts', 'Desserts', 'Desserts', 'حلويات',    'Cake',            'from-pink-500/20 to-rose-500/20',     5, true)
 ON CONFLICT (name) DO NOTHING;
 
 -- Menu Items
-INSERT INTO public.menu_items (name, description, price, category) VALUES
-  ('Classic Burger', 'Juicy beef patty with lettuce, tomato, and special sauce', 12.99, 'Burgers'),
-  ('Cheese Burger', 'Classic burger with melted cheddar cheese', 14.99, 'Burgers'),
-  ('Bacon Burger', 'Classic burger with crispy bacon strips', 16.99, 'Burgers'),
-  ('Veggie Burger', 'Plant-based patty with fresh vegetables', 13.99, 'Burgers'),
-  ('Espresso', 'Rich and bold single shot espresso', 4.99, 'Coffee'),
-  ('Cappuccino', 'Espresso with steamed milk foam', 5.99, 'Coffee'),
-  ('Latte', 'Espresso with steamed milk', 6.49, 'Coffee'),
-  ('Mocha', 'Espresso with chocolate and steamed milk', 6.99, 'Coffee'),
-  ('Caesar Salad', 'Fresh romaine with caesar dressing and croutons', 10.99, 'Salads'),
-  ('Greek Salad', 'Mixed greens with feta and olives', 9.99, 'Salads'),
-  ('French Fries', 'Crispy golden fries with sea salt', 5.99, 'Sides'),
-  ('Onion Rings', 'Beer-battered onion rings', 6.99, 'Sides'),
-  ('Chocolate Cake', 'Rich chocolate layer cake', 8.99, 'Desserts'),
-  ('Cheesecake', 'New York style cheesecake', 7.99, 'Desserts')
+INSERT INTO public.menu_items (name, description, name_en, name_ar, description_en, description_ar, price, category) VALUES
+  ('Classic Burger', 'Juicy beef patty with lettuce, tomato, and special sauce',
+   'Classic Burger', 'برغر كلاسيكي',
+   'Juicy beef patty with lettuce, tomato, and special sauce',
+   'قطعة لحم بقري شهية مع الخس والطماطم والصوص الخاص',
+   12.99, 'Burgers'),
+  ('Cheese Burger', 'Classic burger with melted cheddar cheese',
+   'Cheese Burger', 'برغر بالجبن',
+   'Classic burger with melted cheddar cheese',
+   'برغر كلاسيكي مع جبن الشيدر الذائب',
+   14.99, 'Burgers'),
+  ('Bacon Burger', 'Classic burger with crispy bacon strips',
+   'Bacon Burger', 'برغر باللحم المقدد',
+   'Classic burger with crispy bacon strips',
+   'برغر كلاسيكي مع شرائح اللحم المقدد المقرمشة',
+   16.99, 'Burgers'),
+  ('Veggie Burger', 'Plant-based patty with fresh vegetables',
+   'Veggie Burger', 'برغر نباتي',
+   'Plant-based patty with fresh vegetables',
+   'قطعة نباتية مع خضار طازجة',
+   13.99, 'Burgers'),
+  ('Espresso', 'Rich and bold single shot espresso',
+   'Espresso', 'إسبريسو',
+   'Rich and bold single shot espresso',
+   'جرعة إسبريسو غنية وقوية',
+   4.99, 'Coffee'),
+  ('Cappuccino', 'Espresso with steamed milk foam',
+   'Cappuccino', 'كابتشينو',
+   'Espresso with steamed milk foam',
+   'إسبريسو مع رغوة الحليب المبخّر',
+   5.99, 'Coffee'),
+  ('Latte', 'Espresso with steamed milk',
+   'Latte', 'لاتيه',
+   'Espresso with steamed milk',
+   'إسبريسو مع الحليب المبخّر',
+   6.49, 'Coffee'),
+  ('Mocha', 'Espresso with chocolate and steamed milk',
+   'Mocha', 'موكا',
+   'Espresso with chocolate and steamed milk',
+   'إسبريسو مع الشوكولاتة والحليب المبخّر',
+   6.99, 'Coffee'),
+  ('Caesar Salad', 'Fresh romaine with caesar dressing and croutons',
+   'Caesar Salad', 'سلطة سيزر',
+   'Fresh romaine with caesar dressing and croutons',
+   'خس روماني طازج مع صوص سيزر والخبز المحمّص',
+   10.99, 'Salads'),
+  ('Greek Salad', 'Mixed greens with feta and olives',
+   'Greek Salad', 'سلطة يونانية',
+   'Mixed greens with feta and olives',
+   'خضار ورقية مشكّلة مع جبن الفيتا والزيتون',
+   9.99, 'Salads'),
+  ('French Fries', 'Crispy golden fries with sea salt',
+   'French Fries', 'بطاطس مقلية',
+   'Crispy golden fries with sea salt',
+   'بطاطس ذهبية مقرمشة مع ملح البحر',
+   5.99, 'Sides'),
+  ('Onion Rings', 'Beer-battered onion rings',
+   'Onion Rings', 'حلقات البصل',
+   'Beer-battered onion rings',
+   'حلقات البصل المقلية بعجينة البيرة',
+   6.99, 'Sides'),
+  ('Chocolate Cake', 'Rich chocolate layer cake',
+   'Chocolate Cake', 'كيك الشوكولاتة',
+   'Rich chocolate layer cake',
+   'كيك طبقات الشوكولاتة الغنية',
+   8.99, 'Desserts'),
+  ('Cheesecake', 'New York style cheesecake',
+   'Cheesecake', 'تشيز كيك',
+   'New York style cheesecake',
+   'تشيز كيك على الطريقة النيويوركية',
+   7.99, 'Desserts')
 ON CONFLICT DO NOTHING;
 
 -- =============================================
@@ -838,16 +1092,56 @@ CREATE POLICY "Admins can delete menu images"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'menu-images' AND public.is_admin());
 
--- Rewards
-INSERT INTO public.rewards (name, description, points_cost) VALUES
-  ('Free Espresso', 'Enjoy a free espresso on us!', 100),
-  ('Free Cappuccino', 'A complimentary cappuccino', 150),
-  ('Free French Fries', 'Crispy fries for free', 200),
-  ('$5 Off Your Order', 'Get $5 discount on any order', 250),
-  ('Free Caesar Salad', 'Fresh caesar salad on the house', 350),
-  ('Free Classic Burger', 'Our signature burger for free', 500),
-  ('Free Dessert', 'Choose any dessert from our menu', 300),
-  ('Buy 1 Get 1 Coffee', 'Get two coffees for the price of one', 180),
-  ('$10 Off Your Order', 'Get $10 discount on any order', 500),
-  ('VIP Experience', 'Priority seating + free appetizer', 1000)
+-- Rewards (cafe-appropriate)
+INSERT INTO public.rewards (name, description, name_en, name_ar, description_en, description_ar, points_cost) VALUES
+  ('Free Espresso',         'Enjoy a free espresso on us!',
+   'Free Espresso',         'إسبريسو مجاني',
+   'Enjoy a free espresso on us!',
+   'استمتع بإسبريسو مجاني منّا!',
+   100),
+  ('Free Cappuccino',       'A complimentary cappuccino',
+   'Free Cappuccino',       'كابتشينو مجاني',
+   'A complimentary cappuccino',
+   'كابتشينو مجاني على حسابنا',
+   150),
+  ('Free French Fries',     'Crispy fries for free',
+   'Free French Fries',     'بطاطس مقلية مجانية',
+   'Crispy fries for free',
+   'بطاطس مقلية مقرمشة مجاناً',
+   200),
+  ('5 JOD Off Your Order',  'Get 5 JOD discount on any order',
+   '5 JOD Off Your Order',  'خصم 5 د.أ على طلبك',
+   'Get 5 JOD discount on any order',
+   'احصل على خصم 5 د.أ على أي طلب',
+   250),
+  ('Free Caesar Salad',     'Fresh caesar salad on the house',
+   'Free Caesar Salad',     'سلطة سيزر مجانية',
+   'Fresh caesar salad on the house',
+   'سلطة سيزر طازجة على حسابنا',
+   350),
+  ('Free Classic Burger',   'Our signature burger for free',
+   'Free Classic Burger',   'برغر كلاسيكي مجاني',
+   'Our signature burger for free',
+   'برغرنا المميز مجاناً',
+   500),
+  ('Free Dessert',          'Choose any dessert from our menu',
+   'Free Dessert',          'حلى مجاني',
+   'Choose any dessert from our menu',
+   'اختر أي حلى من قائمتنا',
+   300),
+  ('Buy 1 Get 1 Coffee',    'Get two coffees for the price of one',
+   'Buy 1 Get 1 Coffee',    'اشترِ واحدًا واحصل على قهوة مجانية',
+   'Get two coffees for the price of one',
+   'احصل على قهوتين بسعر قهوة واحدة',
+   180),
+  ('10 JOD Off Your Order', 'Get 10 JOD discount on any order',
+   '10 JOD Off Your Order', 'خصم 10 د.أ على طلبك',
+   'Get 10 JOD discount on any order',
+   'احصل على خصم 10 د.أ على أي طلب',
+   500),
+  ('VIP Experience',        'Priority seating + free appetizer',
+   'VIP Experience',        'تجربة VIP',
+   'Priority seating + free appetizer',
+   'مقعد أولوية + مقبلات مجانية',
+   1000)
 ON CONFLICT DO NOTHING;

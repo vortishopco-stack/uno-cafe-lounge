@@ -122,13 +122,13 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
       for (const burger of burgersRef.current) {
         if (burger.type === 'burger') {
           ctx.font = `${BURGER_SIZE}px Arial`
-          ctx.fillText('🍔', burger.x, burger.y + BURGER_SIZE)
+          ctx.fillText('❤️', burger.x, burger.y + BURGER_SIZE)
         } else if (burger.type === 'golden') {
           ctx.font = `${BURGER_SIZE + 5}px Arial`
           ctx.fillText('⭐', burger.x, burger.y + BURGER_SIZE)
         } else {
           ctx.font = `${BURGER_SIZE}px Arial`
-          ctx.fillText('🥬', burger.x, burger.y + BURGER_SIZE)
+          ctx.fillText('🤢', burger.x, burger.y + BURGER_SIZE)
         }
       }
 
@@ -231,6 +231,16 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
     return 0
   }
 
+  // Auto-call onEnd when the game ends — no "Collect Winnings" button needed.
+  // The entry cost was already deducted when the game started.
+  useEffect(() => {
+    if (gameState === 'ended') {
+      const winnings = calculateWinnings()
+      const timer = setTimeout(() => onEnd(winnings), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [gameState])
+
   if (gameState === 'ended') {
     const winnings = calculateWinnings()
     return (
@@ -246,9 +256,8 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
           </p>
           <p className="text-sm text-muted-foreground">Entry cost: -{entryCost} points</p>
         </div>
-        <Button onClick={() => onEnd(winnings)} className="glass-button px-8">
-          Collect Winnings
-        </Button>
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">Collecting...</p>
       </div>
     )
   }
@@ -256,13 +265,13 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
   if (gameState === 'ready') {
     return (
       <div className="glass-card p-8 text-center space-y-6">
-        <div className="text-5xl mb-2">🍔</div>
-        <h2 className="text-2xl font-bold">Burger Catch</h2>
+        <div className="text-5xl mb-2">❤️</div>
+        <h2 className="text-2xl font-bold">Health Catch</h2>
         <div className="text-sm text-muted-foreground space-y-1">
-          <p>🎮 Use ← → arrow keys or touch to move the plate</p>
-          <p>🍔 Catch burgers = +5 pts</p>
+          <p>🎮 Use ← → arrow keys or touch to move the basket</p>
+          <p>❤️ Health icons = +5 pts</p>
           <p>⭐ Catch golden stars = +15 pts</p>
-          <p>🥬 Avoid veggies = -10 pts</p>
+          <p>🤢 Avoid sick icons = -10 pts</p>
           <p>⏱️ You have {GAME_DURATION} seconds!</p>
         </div>
         <div className="glass-card p-3 inline-block">
