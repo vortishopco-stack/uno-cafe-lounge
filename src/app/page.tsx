@@ -88,6 +88,7 @@ export default function HomePage() {
   const { t } = useT()
   const [isChecking, setIsChecking] = useState(true)
   const [showPublicMenu, setShowPublicMenu] = useState(false)
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false)
   const initRef = useRef(false)
 
   // If Supabase isn't configured, show setup guide
@@ -103,6 +104,21 @@ export default function HomePage() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
+          // Check if this is a PASSWORD_RECOVERY session (user clicked
+          // the reset link in their email). The URL hash contains
+          // type=recovery when this is the case.
+          const hash = typeof window !== 'undefined' ? window.location.hash : ''
+          if (hash.includes('type=recovery')) {
+            // Don't auto-login — show the "Set New Password" form instead
+            setPasswordRecoveryMode(true)
+            setIsChecking(false)
+            // Clean the URL so a page refresh doesn't re-trigger recovery
+            if (typeof window !== 'undefined') {
+              window.history.replaceState(null, '', window.location.pathname)
+            }
+            return
+          }
+
           const { data: profile } = await supabase
             .from('customers')
             .select('*')
@@ -128,6 +144,10 @@ export default function HomePage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_OUT') {
         clearAuth()
+        setPasswordRecoveryMode(false)
+      }
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecoveryMode(true)
       }
     })
 
@@ -157,7 +177,15 @@ export default function HomePage() {
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || passwordRecoveryMode) {
+    if (passwordRecoveryMode) {
+      return (
+        <AuthScreen
+          passwordRecoveryMode
+          onRecoveryComplete={() => setPasswordRecoveryMode(false)}
+        />
+      )
+    }
     if (showPublicMenu) {
       return (
         <PublicMenu

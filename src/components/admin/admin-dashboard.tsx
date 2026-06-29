@@ -3,13 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthStore } from '@/store/auth-store'
 import { useAppStore, type AdminView } from '@/store/app-store'
-import { api } from '@/lib/api'
+import { api, DEFAULT_GRAND_WHEEL_SEGMENTS, DEFAULT_LUCKY_SCRATCH_PRIZES, type GrandWheelSegment, type LuckyScratchPrize } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
+import { formatCurrencyDefault } from '@/lib/currency'
 import { LanguageSwitcher } from '@/components/ui/language-switcher'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -18,7 +20,7 @@ import {
   BarChart3, Settings, UtensilsCrossed, Gift, Users, Coins,
   TrendingUp, Gamepad2, LogOut, Plus, Trash2, Edit3, Save, X,
   ShoppingBag, Award, Target, UsersRound, Zap, ImagePlus, Upload, Eye, EyeOff,
-  ArrowUp, ArrowDown, Tag,
+  ArrowUp, ArrowDown, Tag, RotateCcw,
   Coffee, Salad, Beef, Cake, Flame, Pizza, Soup, IceCream, Croissant,
   Wine, Fish, Drumstick, Cookie, Sandwich, GlassWater,
   Apple, Carrot, Egg, Wheat, Donut, CupSoda,
@@ -90,14 +92,13 @@ const GAME_INFO: Record<string, { label: string; icon: string; color: string }> 
   burger_catch: { label: 'Burger Catch', icon: '🍔', color: 'from-amber-500/20 to-orange-500/20' },
   coffee_shooter: { label: 'Coffee Shooter', icon: '☕', color: 'from-amber-700/20 to-yellow-600/20' },
   grand_wheel: { label: 'Grand Wheel', icon: '🎰', color: 'from-purple-500/20 to-pink-500/20' },
-  predict_match: { label: 'Predict the Match', icon: '⚽', color: 'from-emerald-500/20 to-green-600/20' },
   shoot_target: { label: 'Shoot on Target', icon: '🥅', color: 'from-rose-500/20 to-red-600/20' },
   lucky_scratch: { label: 'Lucky Scratch', icon: '🎟️', color: 'from-fuchsia-500/20 to-purple-600/20' },
 }
 const ALL_GAME_KEYS = Object.keys(GAME_INFO)
 
 export function AdminDashboard() {
-  const { t } = useT()
+  const { t, locale } = useT()
   const { logout } = useAuthStore()
   const { adminView, setAdminView } = useAppStore()
   const [analytics, setAnalytics] = useState<any>(null)
@@ -113,19 +114,94 @@ export function AdminDashboard() {
   // Edit states
   const [editingMenuItem, setEditingMenuItem] = useState<string | null>(null)
   const [editingReward, setEditingReward] = useState<string | null>(null)
-  const [newMenuItem, setNewMenuItem] = useState({ name: '', description: '', price: '', category: 'Main', imageUrl: '' })
+  // Bilingual Menu Item create state — `name` and `description` are kept in
+  // sync with the English values to preserve backward compatibility with any
+  // legacy code paths that still read those columns.
+  const [newMenuItem, setNewMenuItem] = useState<{
+    name: string
+    nameEn: string
+    nameAr: string
+    description: string
+    descriptionEn: string
+    descriptionAr: string
+    price: string
+    category: string
+    imageUrl: string
+  }>({
+    name: '',
+    nameEn: '',
+    nameAr: '',
+    description: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    price: '',
+    category: 'Main',
+    imageUrl: '',
+  })
   const [newMenuImageFile, setNewMenuImageFile] = useState<File | null>(null)
   const [editingMenuItemId, setEditingMenuItemId] = useState<string | null>(null)
   const menuImageInputRef = useRef<HTMLInputElement>(null)
   const editMenuImageInputRef = useRef<HTMLInputElement>(null)
-  // Category management state
-  const [newCategory, setNewCategory] = useState({ name: '', displayName: '', icon: 'UtensilsCrossed', color: CATEGORY_COLOR_OPTIONS[0].classes })
+  // Category management state — bilingual display names
+  const [newCategory, setNewCategory] = useState<{
+    name: string
+    nameEn: string
+    nameAr: string
+    displayName: string
+    icon: string
+    color: string
+  }>({
+    name: '',
+    nameEn: '',
+    nameAr: '',
+    displayName: '',
+    icon: 'UtensilsCrossed',
+    color: CATEGORY_COLOR_OPTIONS[0].classes,
+  })
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
-  const [editCategoryData, setEditCategoryData] = useState({ name: '', displayName: '', icon: 'UtensilsCrossed', color: CATEGORY_COLOR_OPTIONS[0].classes })
-  const [newReward, setNewReward] = useState({ name: '', description: '', pointsCost: '' })
+  const [editCategoryData, setEditCategoryData] = useState<{
+    name: string
+    nameEn: string
+    nameAr: string
+    displayName: string
+    icon: string
+    color: string
+  }>({
+    name: '',
+    nameEn: '',
+    nameAr: '',
+    displayName: '',
+    icon: 'UtensilsCrossed',
+    color: CATEGORY_COLOR_OPTIONS[0].classes,
+  })
+  const [newReward, setNewReward] = useState<{
+    name: string
+    nameEn: string
+    nameAr: string
+    description: string
+    descriptionEn: string
+    descriptionAr: string
+    pointsCost: string
+  }>({
+    name: '',
+    nameEn: '',
+    nameAr: '',
+    description: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    pointsCost: '',
+  })
   const [newMission, setNewMission] = useState({ type: 'custom', title: '', target: '', points: '', forAll: true, customerId: '' })
   const [editingMission, setEditingMission] = useState<string | null>(null)
   const [editMissionData, setEditMissionData] = useState({ title: '', target: '', points: '' })
+
+  // ---------- Game prize configuration state ----------
+  // Admin-editable layouts for the Grand Wheel segments and Lucky Scratch
+  // prizes. Loaded from app_settings on mount; saved back as JSON.
+  const [grandWheelSegments, setGrandWheelSegments] = useState<GrandWheelSegment[]>(DEFAULT_GRAND_WHEEL_SEGMENTS)
+  const [luckyScratchPrizes, setLuckyScratchPrizes] = useState<LuckyScratchPrize[]>(DEFAULT_LUCKY_SCRATCH_PRIZES)
+  const [gameConfigLoading, setGameConfigLoading] = useState(true)
+  const [savingGameConfig, setSavingGameConfig] = useState<'grand_wheel' | 'lucky_scratch' | null>(null)
 
   const adminNavItems: { key: AdminView; label: string; icon: any }[] = [
     { key: 'analytics', label: t('analytics'), icon: BarChart3 },
@@ -174,6 +250,52 @@ export function AdminDashboard() {
     fetchMissions()
   }, [fetchData, fetchMissions])
 
+  // Fetch admin-configurable game prize layouts (Grand Wheel segments +
+  // Lucky Scratch prizes) in parallel. Falls back to defaults if either
+  // call fails or no config has been saved yet.
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      api.getGrandWheelConfig(),
+      api.getLuckyScratchConfig(),
+    ])
+      .then(([segments, prizes]) => {
+        if (cancelled) return
+        if (segments?.length) setGrandWheelSegments(segments)
+        if (prizes?.length) setLuckyScratchPrizes(prizes)
+      })
+      .catch(err => console.error('Failed to fetch game configs:', err))
+      .finally(() => {
+        if (!cancelled) setGameConfigLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  // ---------- Game config handlers ----------
+  const handleSaveGrandWheelConfig = async () => {
+    setSavingGameConfig('grand_wheel')
+    try {
+      await api.updateGrandWheelConfig(grandWheelSegments)
+      toast.success(t('grandWheelConfigSaved'))
+    } catch (error: any) {
+      toast.error(error.message || t('failedToSaveGameConfig'))
+    } finally {
+      setSavingGameConfig(null)
+    }
+  }
+
+  const handleSaveLuckyScratchConfig = async () => {
+    setSavingGameConfig('lucky_scratch')
+    try {
+      await api.updateLuckyScratchConfig(luckyScratchPrizes)
+      toast.success(t('luckyScratchConfigSaved'))
+    } catch (error: any) {
+      toast.error(error.message || t('failedToSaveGameConfig'))
+    } finally {
+      setSavingGameConfig(null)
+    }
+  }
+
   // Need supabase for direct customer query
 
   const handleSaveSettings = async () => {
@@ -189,7 +311,8 @@ export function AdminDashboard() {
   }
 
   const handleCreateMenuItem = async () => {
-    if (!newMenuItem.name || !newMenuItem.price) {
+    // Require at least ONE name (English OR Arabic) + a price.
+    if ((!newMenuItem.nameEn.trim() && !newMenuItem.nameAr.trim()) || !newMenuItem.price) {
       toast.error(t('nameAndPriceRequired'))
       return
     }
@@ -199,13 +322,28 @@ export function AdminDashboard() {
         imageUrl = await api.uploadMenuImage(newMenuImageFile)
       }
       await api.createMenuItem({
-        name: newMenuItem.name,
-        description: newMenuItem.description,
+        // Use English (or Arabic fallback) as the legacy `name` for backward compat.
+        name: newMenuItem.nameEn.trim() || newMenuItem.nameAr.trim(),
+        description: newMenuItem.descriptionEn.trim() || newMenuItem.descriptionAr.trim(),
+        nameEn: newMenuItem.nameEn,
+        nameAr: newMenuItem.nameAr,
+        descriptionEn: newMenuItem.descriptionEn,
+        descriptionAr: newMenuItem.descriptionAr,
         price: parseFloat(newMenuItem.price),
         category: newMenuItem.category,
         imageUrl,
       })
-      setNewMenuItem({ name: '', description: '', price: '', category: 'Main', imageUrl: '' })
+      setNewMenuItem({
+        name: '',
+        nameEn: '',
+        nameAr: '',
+        description: '',
+        descriptionEn: '',
+        descriptionAr: '',
+        price: '',
+        category: 'Main',
+        imageUrl: '',
+      })
       setNewMenuImageFile(null)
       toast.success(t('menuItemCreated'))
       fetchData()
@@ -263,13 +401,22 @@ export function AdminDashboard() {
     try {
       await api.createMenuCategory({
         name: newCategory.name,
-        displayName: newCategory.displayName || newCategory.name,
+        displayName: newCategory.displayName || newCategory.nameEn || newCategory.nameAr || newCategory.name,
+        nameEn: newCategory.nameEn,
+        nameAr: newCategory.nameAr,
         icon: newCategory.icon,
         color: newCategory.color,
         visible: true,
         sortOrder: categories.length, // append at the end
       })
-      setNewCategory({ name: '', displayName: '', icon: 'UtensilsCrossed', color: CATEGORY_COLOR_OPTIONS[0].classes })
+      setNewCategory({
+        name: '',
+        nameEn: '',
+        nameAr: '',
+        displayName: '',
+        icon: 'UtensilsCrossed',
+        color: CATEGORY_COLOR_OPTIONS[0].classes,
+      })
       toast.success(t('categoryCreated'))
       fetchData()
     } catch (error: any) {
@@ -282,6 +429,8 @@ export function AdminDashboard() {
       await api.updateMenuCategory(id, {
         name: editCategoryData.name,
         displayName: editCategoryData.displayName,
+        nameEn: editCategoryData.nameEn,
+        nameAr: editCategoryData.nameAr,
         icon: editCategoryData.icon,
         color: editCategoryData.color,
       })
@@ -334,17 +483,30 @@ export function AdminDashboard() {
     menuItems.filter(item => item.category === categoryName).length
 
   const handleCreateReward = async () => {
-    if (!newReward.name || !newReward.pointsCost) {
+    // Require at least ONE name (English OR Arabic) + points cost.
+    if ((!newReward.nameEn.trim() && !newReward.nameAr.trim()) || !newReward.pointsCost) {
       toast.error(t('nameAndPointsCostRequired'))
       return
     }
     try {
       await api.createReward({
-        name: newReward.name,
-        description: newReward.description,
+        name: newReward.nameEn.trim() || newReward.nameAr.trim(),
+        description: newReward.descriptionEn.trim() || newReward.descriptionAr.trim(),
+        nameEn: newReward.nameEn,
+        nameAr: newReward.nameAr,
+        descriptionEn: newReward.descriptionEn,
+        descriptionAr: newReward.descriptionAr,
         pointsCost: parseInt(newReward.pointsCost),
       })
-      setNewReward({ name: '', description: '', pointsCost: '' })
+      setNewReward({
+        name: '',
+        nameEn: '',
+        nameAr: '',
+        description: '',
+        descriptionEn: '',
+        descriptionAr: '',
+        pointsCost: '',
+      })
       toast.success(t('rewardCreated'))
       fetchData()
     } catch (error: any) {
@@ -662,6 +824,288 @@ export function AdminDashboard() {
         </CardContent>
       </Card>
 
+      {/* ===== Game Prize Configuration (Grand Wheel segments + Lucky Scratch prizes) ===== */}
+      <Card className="glass-card border-0">
+        <CardContent className="p-6 space-y-6">
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+              <Award className="w-4 h-4 text-amber-400" />
+              {t('gamePrizeConfig')}
+            </h3>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">{t('gamePrizeConfigDesc')}</p>
+          </div>
+
+          {gameConfigLoading ? (
+            <div className="glass-card p-6 text-center">
+              <div className="w-6 h-6 mx-auto border-2 border-white/20 border-t-amber-400 rounded-full animate-spin" />
+              <p className="text-xs text-muted-foreground mt-2">{t('loadingGameConfig')}</p>
+            </div>
+          ) : (
+            <>
+              {/* ---------- Grand Wheel Segments ---------- */}
+              <div className="space-y-3 rounded-xl border border-white/10 p-3 bg-black/10">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold flex items-center gap-2">
+                    <span className="text-base">🎡</span>
+                    {t('grandWheelConfig')}
+                  </h4>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">{t('grandWheelConfigDesc')}</p>
+                </div>
+
+                <div className="space-y-2">
+                  {/* Header row (labels only — hidden on small screens) */}
+                  <div className="hidden sm:grid grid-cols-[1fr_90px_70px_40px] gap-2 px-1">
+                    <Label className="text-[10px] text-muted-foreground">{t('segmentLabel')}</Label>
+                    <Label className="text-[10px] text-muted-foreground">{t('segmentValue')}</Label>
+                    <Label className="text-[10px] text-muted-foreground">{t('segmentColor')}</Label>
+                    <span />
+                  </div>
+
+                  {grandWheelSegments.map((seg, idx) => (
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_70px_40px] gap-2 items-center">
+                      <div className="space-y-0.5">
+                        <Label className="text-[9px] text-muted-foreground sm:hidden">{t('segmentLabel')}</Label>
+                        <Input
+                          value={seg.label}
+                          onChange={e => {
+                            const next = [...grandWheelSegments]
+                            next[idx] = { ...next[idx], label: e.target.value }
+                            setGrandWheelSegments(next)
+                          }}
+                          className="glass-input h-9 text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[9px] text-muted-foreground sm:hidden">{t('segmentValue')}</Label>
+                        <Input
+                          type="number"
+                          value={seg.value}
+                          onChange={e => {
+                            const next = [...grandWheelSegments]
+                            next[idx] = { ...next[idx], value: parseInt(e.target.value) || 0 }
+                            setGrandWheelSegments(next)
+                          }}
+                          className="glass-input h-9 text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-0.5 flex items-center gap-1">
+                        <Input
+                          type="color"
+                          value={seg.color}
+                          onChange={e => {
+                            const next = [...grandWheelSegments]
+                            next[idx] = { ...next[idx], color: e.target.value }
+                            setGrandWheelSegments(next)
+                          }}
+                          className="glass-input h-9 w-full p-1 cursor-pointer"
+                          aria-label={t('segmentColor')}
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        onClick={() => {
+                          if (grandWheelSegments.length <= 2) {
+                            toast.error('Wheel needs at least 2 segments')
+                            return
+                          }
+                          setGrandWheelSegments(grandWheelSegments.filter((_, i) => i !== idx))
+                        }}
+                        title="Remove"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="glass-button h-8 text-xs"
+                    onClick={() => setGrandWheelSegments([
+                      ...grandWheelSegments,
+                      { label: '0', value: 0, color: '#374151' },
+                    ])}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    {t('addSegment')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="glass-button h-8 text-xs"
+                    onClick={() => {
+                      setGrandWheelSegments(DEFAULT_GRAND_WHEEL_SEGMENTS)
+                      toast.info(t('gameConfigReset'))
+                    }}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                    {t('resetToDefaults')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="glass-button-success h-8 text-xs ml-auto"
+                    disabled={savingGameConfig === 'grand_wheel'}
+                    onClick={handleSaveGrandWheelConfig}
+                  >
+                    {savingGameConfig === 'grand_wheel' ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    {t('saveGrandWheelConfig')}
+                  </Button>
+                </div>
+              </div>
+
+              {/* ---------- Lucky Scratch Prizes ---------- */}
+              <div className="space-y-3 rounded-xl border border-white/10 p-3 bg-black/10">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold flex items-center gap-2">
+                    <span className="text-base">🎟️</span>
+                    {t('luckyScratchConfig')}
+                  </h4>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">{t('luckyScratchConfigDesc')}</p>
+                </div>
+
+                <div className="space-y-2">
+                  {/* Header row */}
+                  <div className="hidden sm:grid grid-cols-[60px_1fr_90px_90px_40px] gap-2 px-1">
+                    <Label className="text-[10px] text-muted-foreground">{t('prizeEmoji')}</Label>
+                    <Label className="text-[10px] text-muted-foreground">{t('prizeLabel')}</Label>
+                    <Label className="text-[10px] text-muted-foreground">{t('prizeValue')}</Label>
+                    <Label className="text-[10px] text-muted-foreground">{t('prizeWeight')}</Label>
+                    <span />
+                  </div>
+
+                  {luckyScratchPrizes.map((p, idx) => (
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-[60px_1fr_90px_90px_40px] gap-2 items-center">
+                      <div className="space-y-0.5">
+                        <Label className="text-[9px] text-muted-foreground sm:hidden">{t('prizeEmoji')}</Label>
+                        <Input
+                          value={p.emoji}
+                          onChange={e => {
+                            const next = [...luckyScratchPrizes]
+                            next[idx] = { ...next[idx], emoji: e.target.value }
+                            setLuckyScratchPrizes(next)
+                          }}
+                          className="glass-input h-9 text-xs text-center"
+                          placeholder="🎁"
+                          maxLength={4}
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[9px] text-muted-foreground sm:hidden">{t('prizeLabel')}</Label>
+                        <Input
+                          value={p.label}
+                          onChange={e => {
+                            const next = [...luckyScratchPrizes]
+                            next[idx] = { ...next[idx], label: e.target.value }
+                            setLuckyScratchPrizes(next)
+                          }}
+                          className="glass-input h-9 text-xs"
+                          placeholder="Jackpot!"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[9px] text-muted-foreground sm:hidden">{t('prizeValue')}</Label>
+                        <Input
+                          type="number"
+                          value={p.value}
+                          onChange={e => {
+                            const next = [...luckyScratchPrizes]
+                            next[idx] = { ...next[idx], value: parseInt(e.target.value) || 0 }
+                            setLuckyScratchPrizes(next)
+                          }}
+                          className="glass-input h-9 text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[9px] text-muted-foreground sm:hidden">{t('prizeWeight')}</Label>
+                        <Input
+                          type="number"
+                          value={p.weight}
+                          onChange={e => {
+                            const next = [...luckyScratchPrizes]
+                            next[idx] = { ...next[idx], weight: Math.max(0, parseInt(e.target.value) || 0) }
+                            setLuckyScratchPrizes(next)
+                          }}
+                          className="glass-input h-9 text-xs"
+                          placeholder="10"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        onClick={() => {
+                          if (luckyScratchPrizes.length <= 2) {
+                            toast.error('Scratch game needs at least 2 prizes')
+                            return
+                          }
+                          setLuckyScratchPrizes(luckyScratchPrizes.filter((_, i) => i !== idx))
+                        }}
+                        title="Remove"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-[10px] text-muted-foreground/70 leading-relaxed">{t('prizeWeightHint')}</p>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="glass-button h-8 text-xs"
+                    onClick={() => setLuckyScratchPrizes([
+                      ...luckyScratchPrizes,
+                      { emoji: '🎁', label: 'New Prize', value: 0, weight: 10 },
+                    ])}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    {t('addPrize')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="glass-button h-8 text-xs"
+                    onClick={() => {
+                      setLuckyScratchPrizes(DEFAULT_LUCKY_SCRATCH_PRIZES)
+                      toast.info(t('gameConfigReset'))
+                    }}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                    {t('resetToDefaults')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="glass-button-success h-8 text-xs ml-auto"
+                    disabled={savingGameConfig === 'lucky_scratch'}
+                    onClick={handleSaveLuckyScratchConfig}
+                  >
+                    {savingGameConfig === 'lucky_scratch' ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    {t('saveLuckyScratchConfig')}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       <Button onClick={handleSaveSettings} disabled={isSaving} className="glass-button w-full h-12">
         {isSaving ? (
           <div className="flex items-center gap-2">
@@ -720,6 +1164,31 @@ export function AdminDashboard() {
                   value={newCategory.displayName}
                   onChange={e => setNewCategory(prev => ({ ...prev, displayName: e.target.value }))}
                   className="glass-input h-9 text-xs"
+                />
+                <p className="text-[9px] text-muted-foreground/70">{t('bilingualHint')}</p>
+              </div>
+            </div>
+
+            {/* Bilingual display names (English / Arabic) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">{t('nameEn')}</Label>
+                <Input
+                  placeholder={t('nameEnPlaceholder')}
+                  value={newCategory.nameEn}
+                  onChange={e => setNewCategory(prev => ({ ...prev, nameEn: e.target.value }))}
+                  className="glass-input h-9 text-xs"
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">{t('nameAr')}</Label>
+                <Input
+                  placeholder={t('nameArPlaceholder')}
+                  value={newCategory.nameAr}
+                  onChange={e => setNewCategory(prev => ({ ...prev, nameAr: e.target.value }))}
+                  className="glass-input h-9 text-xs"
+                  dir="rtl"
                 />
               </div>
             </div>
@@ -814,6 +1283,29 @@ export function AdminDashboard() {
                         />
                       </div>
                     </div>
+                    {/* Bilingual display names (English / Arabic) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">{t('nameEn')}</Label>
+                        <Input
+                          placeholder={t('nameEnPlaceholder')}
+                          value={editCategoryData.nameEn}
+                          onChange={e => setEditCategoryData(prev => ({ ...prev, nameEn: e.target.value }))}
+                          className="glass-input h-9 text-xs"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">{t('nameAr')}</Label>
+                        <Input
+                          placeholder={t('nameArPlaceholder')}
+                          value={editCategoryData.nameAr}
+                          onChange={e => setEditCategoryData(prev => ({ ...prev, nameAr: e.target.value }))}
+                          className="glass-input h-9 text-xs"
+                          dir="rtl"
+                        />
+                      </div>
+                    </div>
                     {/* Icon picker */}
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">{t('categoryIcon')}</Label>
@@ -889,6 +1381,22 @@ export function AdminDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="font-semibold text-sm truncate">{category.displayName || category.name}</h4>
+                        {/* Show bilingual names side-by-side so the admin can see
+                            exactly what customers see in each locale. */}
+                        {(category.nameEn || category.nameAr) && (
+                          <div className="flex items-center gap-1">
+                            {category.nameEn && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-white/10 text-muted-foreground" dir="ltr">
+                                EN: {category.nameEn}
+                              </Badge>
+                            )}
+                            {category.nameAr && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-white/10 text-muted-foreground" dir="rtl">
+                                AR: {category.nameAr}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                         {category.displayName && category.displayName !== category.name && (
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-white/10 text-muted-foreground">
                             {category.name}
@@ -943,6 +1451,8 @@ export function AdminDashboard() {
                           setEditCategoryData({
                             name: category.name,
                             displayName: category.displayName || category.name,
+                            nameEn: category.nameEn || category.name_en || '',
+                            nameAr: category.nameAr || category.name_ar || '',
                             icon: category.icon || 'UtensilsCrossed',
                             color: category.color || CATEGORY_COLOR_OPTIONS[0].classes,
                           })
@@ -981,27 +1491,60 @@ export function AdminDashboard() {
             <Plus className="w-4 h-4 text-green-400" />
             {t('addMenuItem')}
           </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              placeholder={t('name')}
-              value={newMenuItem.name}
-              onChange={e => setNewMenuItem(prev => ({ ...prev, name: e.target.value }))}
-              className="glass-input h-10"
-            />
-            <Input
-              placeholder={t('price')}
-              type="number"
-              value={newMenuItem.price}
-              onChange={e => setNewMenuItem(prev => ({ ...prev, price: e.target.value }))}
-              className="glass-input h-10"
+          <p className="text-[11px] text-muted-foreground/80 leading-relaxed">{t('bilingualHint')}</p>
+
+          {/* Bilingual Name section */}
+          <div className="space-y-2 rounded-xl border border-white/10 p-3 bg-black/10">
+            <div className="flex items-center justify-between">
+              <Label className="text-[10px] uppercase tracking-wider text-amber-300/80">{t('englishSection')}</Label>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-amber-500/30 text-amber-300">EN</Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                placeholder={t('nameEnPlaceholder')}
+                value={newMenuItem.nameEn}
+                onChange={e => setNewMenuItem(prev => ({ ...prev, nameEn: e.target.value }))}
+                className="glass-input h-10"
+                dir="ltr"
+              />
+              <Input
+                placeholder={t('price')}
+                type="number"
+                value={newMenuItem.price}
+                onChange={e => setNewMenuItem(prev => ({ ...prev, price: e.target.value }))}
+                className="glass-input h-10"
+              />
+            </div>
+            <Textarea
+              placeholder={t('descriptionEnPlaceholder')}
+              value={newMenuItem.descriptionEn}
+              onChange={e => setNewMenuItem(prev => ({ ...prev, descriptionEn: e.target.value }))}
+              className="glass-input min-h-16 text-sm"
+              dir="ltr"
             />
           </div>
-          <Input
-            placeholder={t('description')}
-            value={newMenuItem.description}
-            onChange={e => setNewMenuItem(prev => ({ ...prev, description: e.target.value }))}
-            className="glass-input h-10"
-          />
+
+          <div className="space-y-2 rounded-xl border border-white/10 p-3 bg-black/10">
+            <div className="flex items-center justify-between">
+              <Label className="text-[10px] uppercase tracking-wider text-emerald-300/80">{t('arabicSection')}</Label>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-500/30 text-emerald-300">AR</Badge>
+            </div>
+            <Input
+              placeholder={t('nameArPlaceholder')}
+              value={newMenuItem.nameAr}
+              onChange={e => setNewMenuItem(prev => ({ ...prev, nameAr: e.target.value }))}
+              className="glass-input h-10"
+              dir="rtl"
+            />
+            <Textarea
+              placeholder={t('descriptionArPlaceholder')}
+              value={newMenuItem.descriptionAr}
+              onChange={e => setNewMenuItem(prev => ({ ...prev, descriptionAr: e.target.value }))}
+              className="glass-input min-h-16 text-sm"
+              dir="rtl"
+            />
+          </div>
+
           <div className="flex gap-3">
             <select
               value={newMenuItem.category}
@@ -1079,7 +1622,17 @@ export function AdminDashboard() {
       {/* Menu Items List */}
       <ScrollArea className="max-h-[600px]">
         <div className="space-y-3">
-          {menuItems.map(item => (
+          {menuItems.map(item => {
+            // Show the bilingual EN/AR values explicitly so the admin can
+            // see exactly what customers will see in each locale. Falls back
+            // to the legacy `name` / `description` columns if the bilingual
+            // values are empty (e.g. for items created before this migration).
+            const enName = (item.nameEn ?? item.name_en ?? '').trim() || item.name
+            const arName = (item.nameAr ?? item.name_ar ?? '').trim() || item.name
+            const enDesc = (item.descriptionEn ?? item.description_en ?? '').trim() || item.description
+            const arDesc = (item.descriptionAr ?? item.description_ar ?? '').trim() || item.description
+
+            return (
             <Card key={item.id} className={`glass-card border-0 ${!item.available ? 'opacity-50' : ''}`}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
@@ -1088,7 +1641,7 @@ export function AdminDashboard() {
                     {item.imageUrl ? (
                       <img
                         src={item.imageUrl}
-                        alt={item.name}
+                        alt={enName}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                     ) : (
@@ -1104,15 +1657,22 @@ export function AdminDashboard() {
                   </div>
 
                   {/* Item Details */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-sm truncate">{item.name}</h4>
+                      <h4 className="font-semibold text-sm truncate" dir="ltr">{enName}</h4>
                       <Badge variant="outline" className="text-[10px] shrink-0 border-purple-500/30 text-purple-400">
                         {item.category}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{item.description}</p>
-                    <p className="text-sm font-bold text-green-400 mt-1">${item.price.toFixed(2)}</p>
+                    {/* Arabic name (only if different from English) */}
+                    {arName && arName !== enName && (
+                      <p className="text-xs text-muted-foreground truncate" dir="rtl">{arName}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate" dir="ltr">{enDesc}</p>
+                    {arDesc && arDesc !== enDesc && (
+                      <p className="text-[11px] text-muted-foreground/80 truncate" dir="rtl">{arDesc}</p>
+                    )}
+                    <p className="text-sm font-bold text-green-400 mt-1">{formatCurrencyDefault(item.price)}</p>
                   </div>
 
                   {/* Actions */}
@@ -1150,7 +1710,8 @@ export function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            )
+          })}
         </div>
       </ScrollArea>
 
@@ -1192,27 +1753,61 @@ export function AdminDashboard() {
             <Plus className="w-4 h-4 text-green-400" />
             {t('addReward')}
           </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              placeholder={t('name')}
-              value={newReward.name}
-              onChange={e => setNewReward(prev => ({ ...prev, name: e.target.value }))}
-              className="glass-input h-10"
-            />
-            <Input
-              placeholder={t('pointsCost')}
-              type="number"
-              value={newReward.pointsCost}
-              onChange={e => setNewReward(prev => ({ ...prev, pointsCost: e.target.value }))}
-              className="glass-input h-10"
+          <p className="text-[11px] text-muted-foreground/80 leading-relaxed">{t('bilingualHint')}</p>
+
+          {/* English section */}
+          <div className="space-y-2 rounded-xl border border-white/10 p-3 bg-black/10">
+            <div className="flex items-center justify-between">
+              <Label className="text-[10px] uppercase tracking-wider text-amber-300/80">{t('englishSection')}</Label>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-amber-500/30 text-amber-300">EN</Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                placeholder={t('nameEnPlaceholder')}
+                value={newReward.nameEn}
+                onChange={e => setNewReward(prev => ({ ...prev, nameEn: e.target.value }))}
+                className="glass-input h-10"
+                dir="ltr"
+              />
+              <Input
+                placeholder={t('pointsCost')}
+                type="number"
+                value={newReward.pointsCost}
+                onChange={e => setNewReward(prev => ({ ...prev, pointsCost: e.target.value }))}
+                className="glass-input h-10"
+              />
+            </div>
+            <Textarea
+              placeholder={t('descriptionEnPlaceholder')}
+              value={newReward.descriptionEn}
+              onChange={e => setNewReward(prev => ({ ...prev, descriptionEn: e.target.value }))}
+              className="glass-input min-h-16 text-sm"
+              dir="ltr"
             />
           </div>
-          <Input
-            placeholder={t('description')}
-            value={newReward.description}
-            onChange={e => setNewReward(prev => ({ ...prev, description: e.target.value }))}
-            className="glass-input h-10"
-          />
+
+          {/* Arabic section */}
+          <div className="space-y-2 rounded-xl border border-white/10 p-3 bg-black/10">
+            <div className="flex items-center justify-between">
+              <Label className="text-[10px] uppercase tracking-wider text-emerald-300/80">{t('arabicSection')}</Label>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-500/30 text-emerald-300">AR</Badge>
+            </div>
+            <Input
+              placeholder={t('nameArPlaceholder')}
+              value={newReward.nameAr}
+              onChange={e => setNewReward(prev => ({ ...prev, nameAr: e.target.value }))}
+              className="glass-input h-10"
+              dir="rtl"
+            />
+            <Textarea
+              placeholder={t('descriptionArPlaceholder')}
+              value={newReward.descriptionAr}
+              onChange={e => setNewReward(prev => ({ ...prev, descriptionAr: e.target.value }))}
+              className="glass-input min-h-16 text-sm"
+              dir="rtl"
+            />
+          </div>
+
           <Button onClick={handleCreateReward} className="glass-button-success h-10 w-full">
             <Plus className="w-4 h-4 mr-2" />
             {t('addReward')}
@@ -1222,12 +1817,28 @@ export function AdminDashboard() {
 
       <ScrollArea className="max-h-[500px]">
         <div className="space-y-3">
-          {rewards.map(reward => (
+          {rewards.map(reward => {
+            // Show bilingual EN/AR values side-by-side so the admin can see
+            // exactly what customers will see in each locale. Falls back to
+            // the legacy `name` / `description` columns if the bilingual
+            // values are empty (e.g. for rewards created before this migration).
+            const enName = (reward.nameEn ?? reward.name_en ?? '').trim() || reward.name
+            const arName = (reward.nameAr ?? reward.name_ar ?? '').trim() || reward.name
+            const enDesc = (reward.descriptionEn ?? reward.description_en ?? '').trim() || reward.description
+            const arDesc = (reward.descriptionAr ?? reward.description_ar ?? '').trim() || reward.description
+
+            return (
             <Card key={reward.id} className="glass-card border-0">
               <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm truncate">{reward.name}</h4>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{reward.description}</p>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <h4 className="font-semibold text-sm truncate" dir="ltr">{enName}</h4>
+                  {arName && arName !== enName && (
+                    <p className="text-xs text-muted-foreground truncate" dir="rtl">{arName}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground truncate" dir="ltr">{enDesc}</p>
+                  {arDesc && arDesc !== enDesc && (
+                    <p className="text-[11px] text-muted-foreground/80 truncate" dir="rtl">{arDesc}</p>
+                  )}
                   <div className="flex items-center gap-1 mt-1">
                     <Coins className="w-3 h-3 text-yellow-400" />
                     <span className="text-sm font-bold text-yellow-400">{reward.pointsCost} pts</span>
@@ -1243,7 +1854,8 @@ export function AdminDashboard() {
                 </Button>
               </CardContent>
             </Card>
-          ))}
+            )
+          })}
         </div>
       </ScrollArea>
     </div>
@@ -1316,7 +1928,7 @@ export function AdminDashboard() {
                 <option value="custom" className="bg-gray-900">{t('custom')}</option>
                 <option value="visit_5" className="bg-gray-900">Visit 5</option>
                 <option value="visit_10" className="bg-gray-900">Visit 10</option>
-                <option value="spend_200" className="bg-gray-900">Spend $200</option>
+                <option value="spend_200" className="bg-gray-900">Spend 200 JOD</option>
               </select>
             </div>
             <div className="space-y-1">
@@ -1454,6 +2066,7 @@ export function AdminDashboard() {
       </ScrollArea>
     </div>
   )
+
 
   const renderContent = () => {
     switch (adminView) {

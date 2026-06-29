@@ -158,7 +158,7 @@ export function DailySignIn({ onRefresh }: DailySignInProps) {
           {(status?.streak || 0) > 1 && (
             <div className="flex items-center gap-1 bg-gradient-to-r from-orange-500/20 to-amber-500/20 px-2.5 py-1 rounded-full">
               <Flame className="w-3.5 h-3.5 text-orange-400" />
-              <span className="text-xs font-bold text-orange-400">{t('dayStreak', { count: status?.streak })}</span>
+              <span className="text-xs font-bold text-orange-400">{t('dayStreak', { count: status?.streak ?? 0 })}</span>
             </div>
           )}
         </div>
