@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS public.menu_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
+  name_en TEXT DEFAULT '',
+  name_ar TEXT DEFAULT '',
   icon TEXT DEFAULT 'UtensilsCrossed',
   color TEXT DEFAULT 'from-amber-500/20 to-orange-500/20',
   sort_order INTEGER DEFAULT 0,
@@ -64,15 +66,16 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 4. SEED DEFAULT CATEGORIES ---------------------------------
 -- Each row's `name` must match the `category` text stored on existing menu_items.
--- `display_name` is what customers see in the menu (can differ from internal name).
+-- `display_name` is the legacy customer-facing label (kept for backward compat).
+-- `name_en` / `name_ar` are the bilingual customer-facing labels.
 -- `icon` is a lucide-react icon name. `color` is tailwind gradient classes.
-INSERT INTO public.menu_categories (name, display_name, icon, color, sort_order, visible) VALUES
-  ('Main',     'Main',     'UtensilsCrossed', 'from-amber-500/20 to-orange-500/20',  0, true),
-  ('Burgers',  'Burgers',  'Beef',            'from-amber-500/20 to-orange-500/20',  1, true),
-  ('Coffee',   'Coffee',   'Coffee',          'from-amber-700/20 to-yellow-600/20', 2, true),
-  ('Salads',   'Salads',   'Salad',           'from-green-500/20 to-emerald-500/20', 3, true),
-  ('Sides',    'Sides',    'Flame',           'from-orange-500/20 to-red-500/20',    4, true),
-  ('Desserts', 'Desserts', 'Cake',            'from-pink-500/20 to-rose-500/20',     5, true)
+INSERT INTO public.menu_categories (name, display_name, name_en, name_ar, icon, color, sort_order, visible) VALUES
+  ('Main',     'Main',     'Main',     'رئيسي',     'UtensilsCrossed', 'from-amber-500/20 to-orange-500/20',  0, true),
+  ('Burgers',  'Burgers',  'Burgers',  'برغر',      'Beef',            'from-amber-500/20 to-orange-500/20',  1, true),
+  ('Coffee',   'Coffee',   'Coffee',   'قهوة',      'Coffee',          'from-amber-700/20 to-yellow-600/20', 2, true),
+  ('Salads',   'Salads',   'Salads',   'سلطات',     'Salad',           'from-green-500/20 to-emerald-500/20', 3, true),
+  ('Sides',    'Sides',    'Sides',    'إضافات',    'Flame',           'from-orange-500/20 to-red-500/20',    4, true),
+  ('Desserts', 'Desserts', 'Desserts', 'حلويات',    'Cake',            'from-pink-500/20 to-rose-500/20',     5, true)
 ON CONFLICT (name) DO NOTHING;
 
 -- Done. The admin can now manage categories from the Menu Management page.

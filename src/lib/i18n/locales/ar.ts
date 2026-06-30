@@ -24,6 +24,29 @@ const ar: Record<string, string> = {
   welcomeNew: 'مرحباً، {name}! حصلت على 100 نقطة مكافأة!',
   loginFailed: 'فشل تسجيل الدخول',
   signupFailed: 'فشل إنشاء الحساب',
+
+  // Password Reset
+  forgotPassword: 'نسيت كلمة المرور؟',
+  forgotPasswordTitle: 'إعادة تعيين كلمة المرور',
+  forgotPasswordDesc: 'أدخل بريدك الإلكتروني أو رقم هاتفك وسنرسل لك رابط إعادة التعيين.',
+  emailOrPhone: 'البريد الإلكتروني أو الهاتف',
+  emailOrPhonePlaceholder: 'أدخل بريدك الإلكتروني أو هاتفك',
+  sendResetLink: 'إرسال رابط إعادة التعيين',
+  sending: 'جاري الإرسال...',
+  resetLinkSent: 'تم إرسال رابط إعادة التعيين! تحقق من بريدك الإلكتروني.',
+  resetLinkSentDesc: 'انقر على الرابط في البريد الإلكتروني لتعيين كلمة مرور جديدة.',
+  failedToSendResetLink: 'فشل إرسال رابط إعادة التعيين',
+  backToLogin: 'العودة لتسجيل الدخول',
+  setNewPassword: 'تعيين كلمة مرور جديدة',
+  setNewPasswordDesc: 'أدخل كلمة المرور الجديدة أدناه.',
+  newPassword: 'كلمة المرور الجديدة',
+  confirmPassword: 'تأكيد كلمة المرور',
+  confirmNewPassword: 'أعد إدخال كلمة المرور الجديدة',
+  passwordsDoNotMatch: 'كلمتا المرور غير متطابقتين',
+  passwordUpdated: 'تم تحديث كلمة المرور بنجاح! يرجى تسجيل الدخول.',
+  failedToUpdatePassword: 'فشل تحديث كلمة المرور',
+  updating: 'جاري التحديث...',
+  passwordMinLength: 'يجب أن تكون كلمة المرور 6 أحرف على الأقل',
   poweredBy: 'مدعوم من Supabase • نشر على GitHub Pages',
   demoAccounts: 'تجريبي: مدير (000000) • موظف (111111) • عميل (أي رقم آخر)',
 
@@ -95,8 +118,6 @@ const ar: Record<string, string> = {
   coffeeShooterDesc: 'أطلق على أكواب القهوة عند ظهورها! اختبر ردود أفعالك.',
   grandWheelName: 'العجلة الكبرى',
   grandWheelDesc: 'أدر العجلة للحصول على فرصة لجوائز كبيرة! تبريد شهري.',
-  predictMatchName: 'توقّع نتيجة المباراة',
-  predictMatchDesc: 'توقّع نتيجة المباراة! اختر فوز المضيف أو التعادل أو فوز الضيف واربح كبيراً.',
   shootTargetName: 'سدد على المرمى',
   shootTargetDesc: 'لديك 5 ركلات جزاء! سدّد بعيداً عن الحارس لتسجل أهدافاً.',
   luckyScratchName: 'البطاقة المحظوظة',
@@ -126,6 +147,9 @@ const ar: Record<string, string> = {
   browseOfferings: 'تصفح عروضنا الشهية',
   noItemsInCategory: 'لا توجد عناصر في هذا التصنيف',
   all: 'الكل',
+  searchMenu: 'ابحث في القائمة',
+  searchMenuPlaceholder: 'ابحث بالاسم بالعربية أو الإنجليزية',
+  noSearchResults: 'لا توجد عناصر مطابقة لبحثك',
 
   // History View
   history: 'السجل',
@@ -145,13 +169,13 @@ const ar: Record<string, string> = {
   pointsLabel: 'النقاط',
   visitsLabel: 'الزيارات',
   missionsLabel: 'المهام',
-  invoiceAmount: 'مبلغ الفاتورة ($)',
+  invoiceAmount: 'مبلغ الفاتورة (د.أ)',
   pointsToBeEarned: 'النقاط المكتسبة',
   addVisitAwardPoints: 'إضافة زيارة ومنح نقاط',
   processing: 'جاري المعالجة...',
   searchCustomerFirst: 'ابحث عن عميل أولاً',
   searchCustomer: 'البحث عن عميل',
-  enterPhone: 'أدخل رقم هاتف',
+  // Note: enterPhone is already defined in the Auth section above and reused here.
   customerNotFound: 'العميل غير موجود',
   found: 'تم العثور على: {name}',
   enterValidAmount: 'أدخل مبلغ فاتورة صالح',
@@ -179,7 +203,7 @@ const ar: Record<string, string> = {
 
   // Admin Settings
   pointsSystem: 'نظام النقاط',
-  pointsPerDollar: 'النقاط مقابل كل $1',
+  pointsPerDollar: 'النقاط مقابل كل 1 د.أ',
   gameSettings: 'إعدادات الألعاب',
   entryCostPts: 'تكلفة الدخول (نقاط)',
   maxWinPts: 'أقصى ربح (نقاط)',
@@ -192,6 +216,33 @@ const ar: Record<string, string> = {
   toggleVisibilityHint: 'بدّل لإظهار أو إخفاء كل لعبة للعملاء',
   visible: 'ظاهرة',
   hidden: 'مخفية',
+
+  // Game Configuration (Grand Wheel segments + Lucky Scratch prizes)
+  gamePrizeConfig: 'إعدادات جوائز الألعاب',
+  gamePrizeConfigDesc: 'اضبط المكافآت والعناوين التي يراها العملاء عند اللعب.',
+  grandWheelConfig: 'قطاعات العجلة الكبرى',
+  grandWheelConfigDesc: 'كل صف هو قطاع واحد على العجلة. اضبط النص المعروض والنقاط الممنوحة واللون.',
+  luckyScratchConfig: 'جوائز البطاقة المحظوظة',
+  luckyScratchConfigDesc: 'كل صف هو جائزة محتملة. "الوزن" يتحكم في مدى تكرار ظهورها (أعلى = أكثر احتمالاً).',
+  segmentLabel: 'النص',
+  segmentValue: 'النقاط',
+  segmentColor: 'اللون',
+  prizeEmoji: 'الرمز التعبيري',
+  prizeLabel: 'العنوان',
+  prizeValue: 'النقاط',
+  prizeWeight: 'الوزن',
+  addSegment: 'إضافة قطاع',
+  addPrize: 'إضافة جائزة',
+  saveGrandWheelConfig: 'حفظ إعدادات العجلة',
+  saveLuckyScratchConfig: 'حفظ إعدادات البطاقة',
+  grandWheelConfigSaved: 'تم حفظ إعدادات العجلة الكبرى!',
+  luckyScratchConfigSaved: 'تم حفظ إعدادات البطاقة المحظوظة!',
+  failedToSaveGameConfig: 'فشل حفظ إعدادات اللعبة',
+  loadingGameConfig: 'جاري تحميل إعدادات اللعبة...',
+  resetToDefaults: 'استعادة الافتراضي',
+  gameConfigReset: 'تمت الاستعادة للقيم الافتراضية (اضغط حفظ للتطبيق)',
+  segmentLabelHint: 'نص قصير يظهر على العجلة (مثل "0" أو "50" أو "200")',
+  prizeWeightHint: 'احتمال نسبي. مثلاً أوزان 3 / 10 / 37 تعني أن الجائزة الأولى نادرة.',
 
   // Signup Approval Workflow
   approvals: 'الموافقات',
@@ -235,6 +286,20 @@ const ar: Record<string, string> = {
   itemNowAvailable: 'العنصر مرئي الآن في القائمة',
   itemNowHidden: 'العنصر مخفي الآن من القائمة',
   failedToUpdate: 'فشل التحديث',
+
+  // Bilingual fields
+  englishSection: 'الإنجليزية',
+  arabicSection: 'العربية',
+  nameEn: 'الاسم (إنجليزي)',
+  nameAr: 'الاسم (عربي)',
+  nameEnPlaceholder: 'أدخل الاسم بالإنجليزية',
+  nameArPlaceholder: 'أدخل الاسم بالعربية',
+  descriptionEn: 'الوصف (إنجليزي)',
+  descriptionAr: 'الوصف (عربي)',
+  descriptionEnPlaceholder: 'أدخل الوصف بالإنجليزية',
+  descriptionArPlaceholder: 'أدخل الوصف بالعربية',
+  nameEnOrArRequired: 'يجب إدخال اسم واحد على الأقل (إنجليزي أو عربي)',
+  bilingualHint: 'يرى العملاء الحقل الذي يطابق لغتهم المختارة. إذا كان أحدهما فارغاً يُعرض الآخر كبديل.',
 
   // Admin Menu Categories
   menuCategories: 'تصنيفات القائمة',
@@ -315,6 +380,7 @@ const ar: Record<string, string> = {
 
   // Logout
   loggedOut: 'تم تسجيل الخروج بنجاح',
+
 }
 
 export default ar

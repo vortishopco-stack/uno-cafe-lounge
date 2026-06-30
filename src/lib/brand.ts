@@ -3,7 +3,7 @@
  *  BRAND CONFIG — EDIT THIS ONE FILE TO REBRAND THE ENTIRE APP
  * ============================================================================
  *
- *  To customize this app for a new restaurant, change the values below.
+ *  To customize this app for a new cafe/restaurant, change the values below.
  *  Everything else (colors, logo, menu, rewards) is documented in
  *  CUSTOMIZE.md.
  *
@@ -31,7 +31,8 @@ export const BRAND = {
   /**
    * Internal fake email domain used for phone-based auth.
    * Supabase Auth requires an email, but this app logs in by phone number,
-   * so we synthesize `{phone}@{emailDomain}` under the hood.
+   * so we synthesize `{phone}@{emailDomain}` under the hood for legacy accounts.
+   * New signups use the user's REAL email as the Supabase Auth email.
    *
    * Users never see this. DO NOT change it after going live — existing
    * customer accounts are keyed to this domain. For a brand-new deployment
@@ -43,7 +44,7 @@ export const BRAND = {
   storageBucket: 'menu-images',
 } as const;
 
-/** The synthesized auth email for a phone number (internal use) */
+/** The synthesized auth email for a phone number (internal use, legacy fallback) */
 export function phoneToEmail(phone: string): string {
   return `${phone}@${BRAND.emailDomain}`;
 }

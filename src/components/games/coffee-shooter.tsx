@@ -6,12 +6,51 @@ import { Crosshair } from 'lucide-react'
 
 interface CoffeeShooterGameProps {
   onEnd: (winnings: number) => void
+  onStart: () => Promise<boolean>
   entryCost: number
 }
 
 const CANVAS_WIDTH = 360
 const CANVAS_HEIGHT = 500
 const GAME_DURATION = 25
+
+// =====================================================================
+// FALLING ITEM IMAGES
+// =====================================================================
+// To change the falling item images, simply replace the PNG files in
+// the /public/games/ folder:
+//   /public/games/coffee.png  → regular item (worth +5 pts)
+//   /public/games/latte.png   → latte item (worth +10 pts)
+//   /public/games/special.png → special item (worth +15 pts)
+//
+// Recommended: 64×64 or 128×128 transparent PNG. Keep the same
+// filenames and no code changes are needed.
+// =====================================================================
+const ITEM_IMAGES: Record<string, HTMLImageElement | null> = {
+  coffee: null,
+  latte: null,
+  special: null,
+}
+let imagesLoaded = false
+
+function loadImages() {
+  if (imagesLoaded || typeof window === 'undefined') return
+  imagesLoaded = true
+  const types = ['coffee', 'latte', 'special']
+  types.forEach(type => {
+    const img = new Image()
+    img.src = `/games/${type}.png`
+    img.onload = () => { ITEM_IMAGES[type] = img }
+    img.onerror = () => { console.warn(`Failed to load /games/${type}.png, will fall back to emoji`) }
+  })
+}
+
+// Fallback emojis (used only if the PNG fails to load)
+const FALLBACK_EMOJI: Record<string, string> = {
+  coffee: '☕',
+  latte: '🥛',
+  special: '🍵',
+}
 
 interface CoffeeCup {
   x: number
@@ -23,7 +62,9 @@ interface CoffeeCup {
   hitTime: number
 }
 
-export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) {
+export function CoffeeShooterGame({ onEnd, onStart, entryCost }: CoffeeShooterGameProps) {
+  // Preload falling item images on mount
+  useEffect(() => { loadImages() }, [])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'ended'>('ready')
   const [score, setScore] = useState(0)
@@ -112,9 +153,14 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
           ctx.fillText('💥', cup.x - cup.size / 2, cup.y + cup.size / 4)
           ctx.globalAlpha = 1
         } else {
-          const emoji = cup.type === 'coffee' ? '☕' : cup.type === 'latte' ? '🥛' : '🍵'
-          ctx.font = `${cup.size}px Arial`
-          ctx.fillText(emoji, cup.x - cup.size / 2, cup.y + cup.size / 4)
+          // Draw PNG image if loaded, fall back to emoji
+          const img = ITEM_IMAGES[cup.type]
+          if (img && img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, cup.x - cup.size / 2, cup.y - cup.size / 2, cup.size, cup.size)
+          } else {
+            ctx.font = `${cup.size}px Arial`
+            ctx.fillText(FALLBACK_EMOJI[cup.type] || '☕', cup.x - cup.size / 2, cup.y + cup.size / 4)
+          }
         }
       }
 
@@ -251,7 +297,13 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
     }
   }
 
-  const startGame = () => {
+  const [isStarting, setIsStarting] = useState(false)
+
+  const startGame = async () => {
+    setIsStarting(true)
+    const ok = await onStart()
+    setIsStarting(false)
+    if (!ok) return
     scoreRef.current = 0
     setScore(0)
     setTimeLeft(GAME_DURATION)
@@ -271,6 +323,15 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
     return 0
   }
 
+  // Auto-call onEnd when the game ends — no "Collect Winnings" button needed.
+  useEffect(() => {
+    if (gameState === 'ended') {
+      const winnings = calculateWinnings()
+      const timer = setTimeout(() => onEnd(winnings), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [gameState])
+
   if (gameState === 'ended') {
     const winnings = calculateWinnings()
     return (
@@ -287,9 +348,8 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
           </p>
           <p className="text-sm text-muted-foreground">Entry cost: -{entryCost} points</p>
         </div>
-        <Button onClick={() => onEnd(winnings)} className="glass-button px-8">
-          Collect Winnings
-        </Button>
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">Collecting...</p>
       </div>
     )
   }
@@ -311,9 +371,18 @@ export function CoffeeShooterGame({ onEnd, entryCost }: CoffeeShooterGameProps) 
           <p className="text-sm text-yellow-400">Entry Cost: {entryCost} points</p>
         </div>
         <div>
-          <Button onClick={startGame} className="glass-button px-8 text-lg h-12">
-            <Crosshair className="w-5 h-5 mr-2" />
-            Start Game
+          <Button onClick={startGame} disabled={isStarting} className="glass-button px-8 text-lg h-12">
+            {isStarting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Starting...
+              </div>
+            ) : (
+              <>
+                <Crosshair className="w-5 h-5 mr-2" />
+                Start Game
+              </>
+            )}
           </Button>
         </div>
       </div>

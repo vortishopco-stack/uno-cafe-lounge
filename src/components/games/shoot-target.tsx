@@ -6,6 +6,7 @@ import { Crosshair, Play } from 'lucide-react'
 
 interface ShootTargetGameProps {
   onEnd: (winnings: number) => void
+  onStart: () => Promise<boolean>
   entryCost: number
 }
 
@@ -63,7 +64,7 @@ function getZoneForPoint(x: number, y: number): ShotZone {
   return 'right'
 }
 
-export function ShootTargetGame({ onEnd, entryCost }: ShootTargetGameProps) {
+export function ShootTargetGame({ onEnd, onStart, entryCost }: ShootTargetGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'ended'>('ready')
   const [score, setScore] = useState(0)
@@ -465,7 +466,13 @@ export function ShootTargetGame({ onEnd, entryCost }: ShootTargetGameProps) {
     aimRef.current = { x, y }
   }
 
-  const startGame = () => {
+  const [isStarting, setIsStarting] = useState(false)
+
+  const startGame = async () => {
+    setIsStarting(true)
+    const ok = await onStart()
+    setIsStarting(false)
+    if (!ok) return
     scoreRef.current = 0
     goalsRef.current = 0
     shotsRef.current = 0
@@ -492,6 +499,15 @@ export function ShootTargetGame({ onEnd, entryCost }: ShootTargetGameProps) {
     if (score >= 10) return 10
     return 0
   }
+
+  // Auto-call onEnd when the game ends — no "Collect Winnings" button needed.
+  useEffect(() => {
+    if (gameState === 'ended') {
+      const winnings = calculateWinnings()
+      const timer = setTimeout(() => onEnd(winnings), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [gameState])
 
   if (gameState === 'ended') {
     const winnings = calculateWinnings()
@@ -524,9 +540,8 @@ export function ShootTargetGame({ onEnd, entryCost }: ShootTargetGameProps) {
             </span>
           </p>
         </div>
-        <Button onClick={() => onEnd(winnings)} className="glass-button px-8">
-          Collect Winnings
-        </Button>
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">Collecting...</p>
       </div>
     )
   }
@@ -547,9 +562,18 @@ export function ShootTargetGame({ onEnd, entryCost }: ShootTargetGameProps) {
           <p className="text-sm text-yellow-400">Entry Cost: {entryCost} points</p>
         </div>
         <div>
-          <Button onClick={startGame} className="glass-button px-8 text-lg h-12">
-            <Play className="w-5 h-5 mr-2" />
-            Start Game
+          <Button onClick={startGame} disabled={isStarting} className="glass-button px-8 text-lg h-12">
+            {isStarting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Starting...
+              </div>
+            ) : (
+              <>
+                <Play className="w-5 h-5 mr-2" />
+                Start Game
+              </>
+            )}
           </Button>
         </div>
       </div>

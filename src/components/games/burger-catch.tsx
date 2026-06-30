@@ -6,12 +6,51 @@ import { Play } from 'lucide-react'
 
 interface BurgerCatchGameProps {
   onEnd: (winnings: number) => void
+  onStart: () => Promise<boolean>
   entryCost: number
 }
 
 const CANVAS_WIDTH = 360
 const CANVAS_HEIGHT = 500
 const GAME_DURATION = 30
+
+// =====================================================================
+// FALLING ITEM IMAGES
+// =====================================================================
+// To change the falling item images, simply replace the PNG files in
+// the /public/games/ folder:
+//   /public/games/burger.png  → the regular item (worth +5 pts)
+//   /public/games/golden.png  → the golden/bonus item (worth +15 pts)
+//   /public/games/rotten.png  → the "avoid" item (worth -10 pts)
+//
+// Recommended: 64×64 or 128×128 transparent PNG. Keep the same
+// filenames and no code changes are needed.
+// =====================================================================
+const ITEM_IMAGES: Record<string, HTMLImageElement | null> = {
+  burger: null,
+  golden: null,
+  rotten: null,
+}
+let imagesLoaded = false
+
+function loadImages() {
+  if (imagesLoaded || typeof window === 'undefined') return
+  imagesLoaded = true
+  const types = ['burger', 'golden', 'rotten']
+  types.forEach(type => {
+    const img = new Image()
+    img.src = `/games/${type}.png`
+    img.onload = () => { ITEM_IMAGES[type] = img }
+    img.onerror = () => { console.warn(`Failed to load /games/${type}.png, will fall back to emoji`) }
+  })
+}
+
+// Fallback emojis (used only if the PNG fails to load)
+const FALLBACK_EMOJI: Record<string, string> = {
+  burger: '🍔',
+  golden: '⭐',
+  rotten: '🥬',
+}
 const PLATE_WIDTH = 70
 const PLATE_HEIGHT = 15
 const BURGER_SIZE = 30
@@ -23,7 +62,10 @@ interface Burger {
   type: 'burger' | 'golden' | 'rotten'
 }
 
-export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
+export function BurgerCatchGame({ onEnd, onStart, entryCost }: BurgerCatchGameProps) {
+  // Preload falling item images on mount
+  useEffect(() => { loadImages() }, [])
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'ended'>('ready')
   const [score, setScore] = useState(0)
@@ -118,17 +160,15 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
         ctx.fill()
       }
 
-      // Burgers
+      // Burgers — draw PNG image if loaded, fall back to emoji
       for (const burger of burgersRef.current) {
-        if (burger.type === 'burger') {
-          ctx.font = `${BURGER_SIZE}px Arial`
-          ctx.fillText('🍔', burger.x, burger.y + BURGER_SIZE)
-        } else if (burger.type === 'golden') {
-          ctx.font = `${BURGER_SIZE + 5}px Arial`
-          ctx.fillText('⭐', burger.x, burger.y + BURGER_SIZE)
+        const img = ITEM_IMAGES[burger.type]
+        const size = burger.type === 'golden' ? BURGER_SIZE + 5 : BURGER_SIZE
+        if (img && img.complete && img.naturalWidth > 0) {
+          ctx.drawImage(img, burger.x, burger.y, size, size)
         } else {
-          ctx.font = `${BURGER_SIZE}px Arial`
-          ctx.fillText('🥬', burger.x, burger.y + BURGER_SIZE)
+          ctx.font = `${size}px Arial`
+          ctx.fillText(FALLBACK_EMOJI[burger.type] || '🍔', burger.x, burger.y + BURGER_SIZE)
         }
       }
 
@@ -212,7 +252,13 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
     plateXRef.current = Math.max(0, Math.min(CANVAS_WIDTH - PLATE_WIDTH, x - PLATE_WIDTH / 2))
   }
 
-  const startGame = () => {
+  const [isStarting, setIsStarting] = useState(false)
+
+  const startGame = async () => {
+    setIsStarting(true)
+    const ok = await onStart()
+    setIsStarting(false)
+    if (!ok) return
     scoreRef.current = 0
     setScore(0)
     setTimeLeft(GAME_DURATION)
@@ -231,6 +277,16 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
     return 0
   }
 
+  // Auto-call onEnd when the game ends — no "Collect Winnings" button needed.
+  // The entry cost was already deducted when the game started.
+  useEffect(() => {
+    if (gameState === 'ended') {
+      const winnings = calculateWinnings()
+      const timer = setTimeout(() => onEnd(winnings), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [gameState])
+
   if (gameState === 'ended') {
     const winnings = calculateWinnings()
     return (
@@ -246,9 +302,8 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
           </p>
           <p className="text-sm text-muted-foreground">Entry cost: -{entryCost} points</p>
         </div>
-        <Button onClick={() => onEnd(winnings)} className="glass-button px-8">
-          Collect Winnings
-        </Button>
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">Collecting...</p>
       </div>
     )
   }
@@ -269,9 +324,18 @@ export function BurgerCatchGame({ onEnd, entryCost }: BurgerCatchGameProps) {
           <p className="text-sm text-yellow-400">Entry Cost: {entryCost} points</p>
         </div>
         <div>
-          <Button onClick={startGame} className="glass-button px-8 text-lg h-12">
-            <Play className="w-5 h-5 mr-2" />
-            Start Game
+          <Button onClick={startGame} disabled={isStarting} className="glass-button px-8 text-lg h-12">
+            {isStarting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Starting...
+              </div>
+            ) : (
+              <>
+                <Play className="w-5 h-5 mr-2" />
+                Start Game
+              </>
+            )}
           </Button>
         </div>
       </div>

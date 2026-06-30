@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppStore, type GameType } from '@/store/app-store'
 import { useAuthStore } from '@/store/auth-store'
 import { useT } from '@/lib/i18n'
@@ -8,13 +8,12 @@ import { api } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Gamepad2, Timer, Coins, ArrowLeft, Hamburger, Coffee, CircleDot, Trophy, Crosshair, Ticket } from 'lucide-react'
+import { Gamepad2, Timer, Coins, ArrowLeft, Hamburger, Coffee, CircleDot, Crosshair, Ticket } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { BurgerCatchGame } from '@/components/games/burger-catch'
 import { CoffeeShooterGame } from '@/components/games/coffee-shooter'
 import { GrandWheelGame } from '@/components/games/grand-wheel'
-import { PredictMatchGame } from '@/components/games/predict-match'
 import { ShootTargetGame } from '@/components/games/shoot-target'
 import { LuckyScratchGame } from '@/components/games/lucky-scratch'
 
@@ -34,11 +33,13 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
   const { activeGame, setActiveGame } = useAppStore()
   const { user, updateUser } = useAuthStore()
   const { t } = useT()
+  // Holds the game_id returned by start_game() so that finish_game()
+  // knows which game_history row to update when the game ends.
+  const gameIdRef = useRef<string | null>(null)
   const [gameStatuses, setGameStatuses] = useState<Record<GameType, GameStatus | null>>({
     burger_catch: null,
     coffee_shooter: null,
     grand_wheel: null,
-    predict_match: null,
     shoot_target: null,
     lucky_scratch: null,
   })
@@ -64,13 +65,6 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
       description: t('grandWheelDesc'),
       color: 'from-purple-500 to-pink-500',
       emoji: '🎡',
-    },
-    predict_match: {
-      name: t('predictMatchName'),
-      icon: Trophy,
-      description: t('predictMatchDesc'),
-      color: 'from-emerald-500 to-green-600',
-      emoji: '⚽',
     },
     shoot_target: {
       name: t('shootTargetName'),
@@ -111,7 +105,6 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
     burger_catch: 50,
     coffee_shooter: 50,
     grand_wheel: 100,
-    predict_match: 60,
     shoot_target: 60,
     lucky_scratch: 40,
   }
@@ -140,8 +133,20 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
 
   const handleGameEnd = async (gameType: GameType, winnings: number) => {
     try {
-      const result = await api.playGame(gameType, winnings)
-      const newBalance = result.new_points_balance ?? result.newPointsBalance ?? 0
+      // If we have a gameId from startGame, use finishGame (two-phase flow).
+      // Otherwise fall back to the old play_game RPC (backward compat).
+      const gameId = gameIdRef.current
+      let newBalance: number
+
+      if (gameId) {
+        const result = await api.finishGame(gameId, winnings)
+        newBalance = result.newPointsBalance
+        gameIdRef.current = null
+      } else {
+        const result = await api.playGame(gameType, winnings)
+        newBalance = result.new_points_balance ?? result.newPointsBalance ?? 0
+      }
+
       updateUser({ points: newBalance })
       toast.success(
         winnings > 0
@@ -168,7 +173,26 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
       toast.error(t('notEnoughPoints'))
       return
     }
+    // Just open the game screen — entry cost is deducted when the user
+    // clicks "Start Game" INSIDE the game (via onStart callback).
+    gameIdRef.current = null
     setActiveGame(gameType)
+  }
+
+  // Called by each game component when the user clicks "Start Game" / "Spin"
+  // / "Start" INSIDE the game. Deducts entry cost immediately and returns
+  // true if successful, false otherwise. The game won't start until this
+  // returns true.
+  const handleGameStart = async (gameType: GameType): Promise<boolean> => {
+    try {
+      const result = await api.startGame(gameType)
+      gameIdRef.current = result.gameId
+      updateUser({ points: result.newPointsBalance })
+      return true
+    } catch (error: any) {
+      toast.error(error.message || t('gameError'))
+      return false
+    }
   }
 
   // If a game is active, render the game component
@@ -190,36 +214,35 @@ export function GamesHub({ onRefresh }: GamesHubProps) {
         {activeGame === 'burger_catch' && (
           <BurgerCatchGame
             onEnd={(winnings) => handleGameEnd('burger_catch', winnings)}
+            onStart={() => handleGameStart('burger_catch')}
             entryCost={status?.entryCost || 50}
           />
         )}
         {activeGame === 'coffee_shooter' && (
           <CoffeeShooterGame
             onEnd={(winnings) => handleGameEnd('coffee_shooter', winnings)}
+            onStart={() => handleGameStart('coffee_shooter')}
             entryCost={status?.entryCost || 50}
           />
         )}
         {activeGame === 'grand_wheel' && (
           <GrandWheelGame
             onEnd={(winnings) => handleGameEnd('grand_wheel', winnings)}
+            onStart={() => handleGameStart('grand_wheel')}
             entryCost={status?.entryCost || 100}
-          />
-        )}
-        {activeGame === 'predict_match' && (
-          <PredictMatchGame
-            onEnd={(winnings) => handleGameEnd('predict_match', winnings)}
-            entryCost={status?.entryCost || DEFAULT_ENTRY_COST.predict_match}
           />
         )}
         {activeGame === 'shoot_target' && (
           <ShootTargetGame
             onEnd={(winnings) => handleGameEnd('shoot_target', winnings)}
+            onStart={() => handleGameStart('shoot_target')}
             entryCost={status?.entryCost || DEFAULT_ENTRY_COST.shoot_target}
           />
         )}
         {activeGame === 'lucky_scratch' && (
           <LuckyScratchGame
             onEnd={(winnings) => handleGameEnd('lucky_scratch', winnings)}
+            onStart={() => handleGameStart('lucky_scratch')}
             entryCost={status?.entryCost || DEFAULT_ENTRY_COST.lucky_scratch}
           />
         )}

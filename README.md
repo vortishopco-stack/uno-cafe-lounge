@@ -1,14 +1,14 @@
 # ☕ Uno Cafe' Lounge — Loyalty & Rewards Platform
 
-A complete, production-ready restaurant loyalty platform. Customers earn points
+A complete, production-ready **cafe loyalty platform**. Customers earn points
 on visits, play mini-games, complete missions, and redeem rewards. Staff manage
 customers, visits, and sign-up approvals. Admins manage everything.
 
 Built with **Next.js 16 + Supabase**, configured for **GitHub Pages** static
 deployment. Fully bilingual (English + Arabic, RTL).
 
-> **🎯 Want to clone this for another restaurant?** See **[CUSTOMIZE.md](CUSTOMIZE.md)**
-> — rebrand in under 30 minutes by editing one config file.
+> **🎯 Want to clone this for another cafe?** See **[CUSTOMIZE.md](CUSTOMIZE.md)**
+> — rebrand in under 30 minutes by editing one config file (`src/lib/brand.ts`).
 
 ---
 
@@ -17,46 +17,46 @@ deployment. Fully bilingual (English + Arabic, RTL).
 ### Customer app
 - Points dashboard with live balance
 - Daily sign-in streaks with bonus multipliers
-- Menu browsing (public — no login needed)
-- **6 mini-games** (see below)
+- Services browsing (public — no login needed)
+- **5 mini-games** (see below)
 - Missions / challenges with point rewards
 - Rewards store
 - Visit & game history
 
-### Employee portal
-- Search customers by phone
+### Staff portal
+- Search patients by phone
 - Add visits & award points
-- Redeem rewards on behalf of customers
-- **Sign-up approvals** — review and approve/reject new customer registrations
+- Redeem rewards on behalf of patients
+- **Sign-up approvals** — review and approve/reject new patient registrations
 
 ### Admin panel
 - Analytics dashboard
 - **Menu categories** — add/edit/delete/show-hide/reorder (with icon + color picker)
-- Menu management with image upload
+- Services management with image upload
 - Rewards CRUD
 - Missions management
-- Settings: points per $, signup bonus, daily sign-in points
+- Settings: points per 1 JOD, signup bonus, daily sign-in points
 - **Game management** — show/hide any game, set costs & cooldowns
 - Game winnings config + spin wheel segments
 
 ### Platform
 - Bilingual: English + Arabic with full RTL support
-- Staff-only redemption (customers ask staff to redeem — prevents fraud)
-- Public menu (anyone can browse without signing in)
+- Staff-only redemption (patients ask staff to redeem — prevents fraud)
+- Public services list (anyone can browse without signing in)
 - Sign-up approval workflow (staff approve new registrations)
 - Mobile-first responsive design with sticky footer
 - Static export — free hosting on GitHub Pages
+- **White-label**: rename to your cafe in one file
 
 ---
 
-## 🎮 Games (6 total)
+## 🎮 Games (5 total)
 
 | Game | Description | Admin toggle |
 |------|-------------|--------------|
-| 🍔 **Cup Catch** | Catch falling items in a basket | Show/Hide |
-| ☕ **Bean Shooter** | Shoot coffee beans at targets | Show/Hide |
-| 🎡 **Lounge Wheel** | Spin the wheel for instant prizes | Show/Hide |
-| ⚽ **Predict the Match** | Predict a football match result | Show/Hide |
+| 🍔 **Burger Catch** | Catch falling burgers in a basket | Show/Hide |
+| ☕ **Coffee Shooter** | Shoot coffee cups as they appear | Show/Hide |
+| 🎡 **Grand Wheel** | Spin the wheel for instant prizes | Show/Hide |
 | 🥅 **Shoot on Target** | 5 penalty shots vs a diving keeper | Show/Hide |
 | 🎟️ **Lucky Scratch** | Scratch card instant win | Show/Hide |
 
@@ -130,10 +130,10 @@ uno-cafe-lounge/
 2. Open `supabase/schema.sql` from this ZIP, copy everything, paste, **Run**
 3. This creates all tables, RLS policies, RPC functions, and seeds:
    - 6 menu categories (Main, Burgers, Coffee, Salads, Sides, Desserts)
-   - 24 menu items (cafe-themed)
-   - 12 rewards
-   - 6 games with default costs/cooldowns
-   - Default app settings (points per $, signup bonus, etc.)
+   - 14 cafe menu items
+   - 10 cafe rewards (Free Espresso, Free Cappuccino, etc.)
+   - 5 games with default costs/cooldowns
+   - Default app settings (points per 1 JOD, signup bonus, etc.)
 
 ### Step 4 — Create demo users (optional but recommended)
 1. Supabase → **Authentication** → **Providers** → **Email** → turn OFF "Confirm email" → Save
